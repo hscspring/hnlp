@@ -1,0 +1,1 @@
+from dnlp.task.sequence_tagger.model import SequenceTagger

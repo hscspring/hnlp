@@ -1,2 +1,15 @@
-# dnlp
-DeepLearning for NLP, on top of Transformers.
+# hnlp
+Humanly DeepLearning NLP, quick demo and play.
+
+
+
+
+
+
+
+## Test
+
+```bash
+$ python -m pytest
+```
+
