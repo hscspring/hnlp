@@ -1,12 +1,15 @@
 from dataclasses import dataclass
 from typing import Iterator, Iterable, List, Tuple, Any
 
+import numpy as np
+
 from torch.utils.data import Dataset
 from torch.utils.data import SequentialSampler, RandomSampler
 from torch.utils.data import BatchSampler, DataLoader
 
 
 from hnlp.node import Node
+from hnlp.register import Register
 
 
 """
@@ -83,30 +86,24 @@ Besides, `Dataset`, `Pipeline`, `Fields` are convenient in some occasion.
 @dataclass
 class DataManager(Node):
 
+    name: str = "random"
     min_seq_len: int = 1
     max_seq_len: int = 512
-    sampler: str = "random"
     batch_size: int = 1
     drop_last: bool = False
 
     def __post_init__(self):
         super().__init__()
-        self.identity = "datamanager"
-        self.join = True
-        if self.sampler == "random":
-            self.node = BatchRandomLoader(
-                self.min_seq_len,
-                self.max_seq_len,
-                self.batch_size,
-                self.drop_last)
-        elif self.sampler == "sequence":
-            self.node = BatchSequenceLoader(
-                self.min_seq_len,
-                self.max_seq_len,
-                self.batch_size,
-                self.drop_last)
-        else:
+        self.identity = "data_manager"
+        self.batch = True
+        cls_name = "_".join([self.name, self.identity])
+        Manager = Register.get(cls_name)
+        if not Manager:
             raise NotImplementedError
+        self.node = Manager(self.min_seq_len,
+                            self.max_seq_len,
+                            self.batch_size,
+                            self.drop_last)
 
 
 @dataclass
@@ -119,10 +116,10 @@ class BatchLoader:
 
     def __call__(self, inputs:
                  List[List[str or int]] or
-                 List[Tuple[List[str or int], Any]]):
+                 List[Tuple[List[str or int], Any]], *args):
         dataset = MapStyleDataset(
-            inputs, 
-            self.min_seq_len, 
+            inputs,
+            self.min_seq_len,
             self.max_seq_len)
         batch_sampler = BatchSampler(
             self.sampler(dataset),
@@ -135,15 +132,17 @@ class BatchLoader:
         return loader
 
 
+@Register.register
 @dataclass
-class BatchRandomLoader(BatchLoader):
+class RandomDataManager(BatchLoader):
 
     def __post_init__(self):
         self.sampler = RandomSampler
 
 
+@Register.register
 @dataclass
-class BatchSequenceLoader(BatchLoader):
+class SequenceDataManager(BatchLoader):
 
     def __post_init__(self):
         self.sampler = SequentialSampler
@@ -158,24 +157,31 @@ class MapStyleDataset(Dataset):
     pad_token_id: int = 0
 
     def __post_init__(self):
-        self.data = self.filter_sequences()
+        self.data = self.filter_sequences(self.data)
+        self.length = len(self.data)
 
     def __getitem__(self, index: int):
         return self.data[index]
 
     def __len__(self):
-        return len(self.data)
+        return self.length
 
-    def filter_sequences(self):
+    def get_batch(self, batch_size: int):
+        indexes = np.random.choice(
+            self.length, batch_size, replace=False, p=None)
+        chosen = [self.data[i] for i in indexes]
+        return self.batch_sequences(chosen)
+
+    def filter_sequences(self, data):
         def x_len(ele):
             if type(ele) == tuple:
                 return len(ele[0])
             else:
                 return len(ele)
-        return list(
+        result = list(
             filter(lambda x:
-                   self.min_seq_len <= x_len(x) <= self.max_seq_len,
-                   self.data))
+                   self.min_seq_len <= x_len(x) <= self.max_seq_len, data))
+        return result
 
     def batch_sequences(self, batch):
         if type(batch[0]) == tuple:

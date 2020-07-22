@@ -164,7 +164,7 @@ def test_custom_node_without_label():
 
         def __post_init__(self):
             super().__init__()
-            self.node = lambda x: x
+            self.node = lambda x : x
 
     pipe = (Corpus("custom") >>
             CustomPreprocessor() >>
@@ -194,7 +194,7 @@ def test_custom_node_with_label():
 
         def __post_init__(self):
             super().__init__()
-            self.node = lambda x: x
+            self.node = lambda x : x
 
     pipe = (Corpus("custom") >>
             CustomPreprocessor() >>

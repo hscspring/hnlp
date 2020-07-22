@@ -1,8 +1,11 @@
-from typing import List
+from typing import List, TypeVar, Generic
 from functools import partial
+from torch import Tensor
+
+from hnlp.base import ModelInputType, ModelLabelType
 
 """
-This is the base node for generate pipes.
+This is the base node for generating pipes.
 
 Actually the deeplearning process is just like a pipeline,
 data is not that important for the framework.
@@ -14,29 +17,31 @@ Here we referenced from saveral excellent repos:
 
 """
 
+T = TypeVar('T', str, tuple, List[str], List[tuple], ModelInputType)
+
 
 class Node:
 
     identity = None
-    join = False
+    batch = False
 
     def __init__(self):
         self.nodes = [self]
 
-    def __call__(self, inputs: str or tuple or List[str or tuple]):
+    def __call__(self, inputs: T):
         return self.call(inputs)
 
-    def call(self, inputs: str or tuple or List[str or tuple]):
-        if self.join:
+    def call(self, inputs: T):
+        if self.batch:
             return self.node(inputs)
-
         if isinstance(inputs, str) == True:
             return self.__call_str(inputs)
-
         if isinstance(inputs, tuple) == True:
             return self.__call_tuple(inputs)
-
-        return self.__call_list(inputs)
+        elif isinstance(inputs, list) == True:
+            return self.__call_list(inputs)
+        else:
+            return self.node(inputs)
 
     def __call_str(self, inputs: str):
         return self.node(inputs)
@@ -62,7 +67,7 @@ class Node:
     # All calls are happened on the Middleware Layer (Corpus, Tokenizer, etc.)
     # We DONOT call the actual object.
 
-    def run(self, inputs: str or tuple or List[str or tuple]):
+    def run(self, inputs: T):
         for node in self.nodes:
             # this is actually the above `__call__` function
             inputs = node(inputs)
@@ -71,6 +76,24 @@ class Node:
     def __rshift__(self, other):
         self.nodes.append(other)
         return self
+
+    # for Model Node `fit`
+    def fit(self, inputs: ModelInputType, labels: ModelLabelType):
+        for node in self.nodes:
+            if hasattr(node, "fit"):
+                inputs = node.fit(inputs, labels)
+            else:
+                inputs = node(inputs)
+        return inputs
+
+    # for Model Node `predict`
+    def predict(self, inputs: ModelInputType):
+        for node in self.nodes:
+            if hasattr(node, "predict"):
+                inputs = node.predict(inputs)
+            else:
+                inputs = node(inputs)
+        return inputs
 
 
 """
@@ -83,20 +106,21 @@ We referenced this excellent design from :
 
 """
 
+
 class N:
-    
-    def __init__(self, f = lambda arg: arg, *args, **kwargs):
+
+    def __init__(self, f=lambda arg: arg, *args, **kwargs):
         self.f = partial(f, *args, **kwargs) if any([args, kwargs]) else f
-    
+
     def __ensure_callable(self, f):
         return self.__class__(*f) if isinstance(f, tuple) else f
-    
+
     @classmethod
     def __compose(cls, g, f):
         return cls(lambda *args, **kwargs: g(f(*args, **kwargs)))
-    
+
     def __rshift__(self, g):
         return self.__class__.__compose(self.__ensure_callable(g), self.f)
-    
+
     def __call__(self, *args, **kwargs):
         return self.f(*args, **kwargs)

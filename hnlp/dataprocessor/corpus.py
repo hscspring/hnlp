@@ -4,6 +4,7 @@ from pnlp import Reader
 
 
 from hnlp.node import Node
+from hnlp.register import Register
 
 
 @dataclass
@@ -16,12 +17,14 @@ class Corpus(Node):
     def __post_init__(self):
         super().__init__()
         self.identity = "corpus"
-        if self.name == "custom":
-            self.node = CustomCorpus(self.pattern, self.sep)
-        else:
+        cls_name = "_".join([self.name, self.identity])
+        CorpusData = Register.get(cls_name)
+        if not CorpusData:
             raise NotImplementedError
+        self.node = CorpusData(self.pattern, self.sep)
 
 
+@Register.register
 @dataclass
 class CustomCorpus:
 

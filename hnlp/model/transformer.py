@@ -1,4 +1,0 @@
-
-
-class TransformerModel():
-    pass

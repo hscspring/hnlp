@@ -2,12 +2,16 @@ import collections
 from dataclasses import dataclass
 import re
 
-from transformers import BasicTokenizer, BertTokenizer
+from pnlp import cut_zhchar
+
+from transformers import BasicTokenizer
+from transformers import BertTokenizer as TransBertTokenizer
 
 from hnlp.node import Node
+from hnlp.register import Register
 
 # referenced from jieba
-re_zh = re.compile(r"([\u4E00-\u9FD5+#&\._%\-]+)", re.U)
+re_zh = re.compile(r"([\u4E00-\u9FD5+#&._%-]+)", re.UNICODE)
 re_skip = re.compile(r"(\s)", re.U)
 
 
@@ -21,22 +25,25 @@ class Tokenizer(Node):
     def __post_init__(self):
         super().__init__()
         self.identity = "tokenizer"
-        if self.name == "chinese_char":
-            self.node = ChineseCharTokenizer()
-        elif self.name == "chinese_word":
-            self.node = ChineseWordTokenizer(self.segmentor)
+        cls_name = "_".join([self.name, self.identity])
+        DataTokenizer = Register.get(cls_name)
+        if not DataTokenizer:
+            raise NotImplementedError
+
+        if self.name == "chinese_word":
+            self.node = DataTokenizer(self.segmentor)
         elif self.name == "bert":
-            self.node = CustomBertTokenizer(self.vocab_file)
+            self.node = DataTokenizer(self.vocab_file)
         elif self.name == "bert_chinese_word":
             self.node = BertChineseWordTokenizer(
                 self.vocab_file, self.segmentor)
         else:
-            raise NotImplementedError
+            self.node = DataTokenizer()
 
 
-
+@Register.register
 @dataclass
-class CustomBertTokenizer(BertTokenizer):
+class BertTokenizer(TransBertTokenizer):
 
     vocab_file: str
 
@@ -49,8 +56,9 @@ class CustomBertTokenizer(BertTokenizer):
         return self.encode(text)
 
 
+@Register.register
 @dataclass
-class BertChineseWordTokenizer(BertTokenizer):
+class BertChineseWordTokenizer(TransBertTokenizer):
 
     vocab_file: str
     segmentor: callable
@@ -86,9 +94,10 @@ class BertChineseWordTokenizer(BertTokenizer):
         if self.vocab_has_built:
             return self.encode(text)
         else:
-            raise ValueError("Please build vocab first.")
+            raise ValueError("hnlp: Please build vocab first.")
 
 
+@Register.register
 @dataclass
 class ChineseCharTokenizer:
 
@@ -98,20 +107,8 @@ class ChineseCharTokenizer:
         self.vocab = collections.OrderedDict()
 
     def tokenize(self, text: str):
-        blocks = re_zh.split(text)
-        for block in blocks:
-            if not block:
-                continue
-            if re_zh.match(block):
-                for char in block:
-                    yield char
-            else:
-                skips = re_skip.split(block)
-                for skip in skips:
-                    if self.remove_blank:
-                        skip = re_skip.sub("", skip)
-                    if skip:
-                        yield skip
+        chars = cut_zhchar(text, self.remove_blank)
+        return chars
 
     def build_vocab(self, text_list: list, min_freq: int = 2):
         pass
@@ -133,6 +130,7 @@ class ChineseCharTokenizer:
         pass
 
 
+@Register.register
 @dataclass
 class ChineseWordTokenizer(BasicTokenizer):
 

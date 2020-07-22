@@ -25,7 +25,7 @@ def test_mapstyle_dataset_min_len(input_data):
 
 def test_data_manager_sequence_default(input_data):
     # batch_size default is 1
-    manager = DataManager(sampler="sequence")
+    manager = DataManager(name="sequence")
     data = manager(input_data)
     result = list(data)
     assert result == [
@@ -36,7 +36,7 @@ def test_data_manager_sequence_default(input_data):
 
 def test_data_manager_random_default(input_data):
     # batch_size default is 1
-    manager = DataManager(sampler="random")
+    manager = DataManager(name="random")
     data = manager(input_data)
     result = list(data)
     assert result == [
@@ -50,7 +50,7 @@ def test_data_manager_random_default(input_data):
 
 def test_data_manager_sequence_pad(input_data):
     # min_seq_len default is 1
-    manager = DataManager(batch_size=3, sampler="sequence")
+    manager = DataManager(batch_size=3, name="sequence")
     data = manager(input_data)
     result = list(data)
     assert result == [[
@@ -61,7 +61,7 @@ def test_data_manager_sequence_pad(input_data):
 
 def test_data_manager_random_pad(input_data):
     # min_seq_len default is 1
-    manager = DataManager(batch_size=3, sampler="random")
+    manager = DataManager(batch_size=3, name="random")
     data = manager(input_data)
     result = list(data)
     assert result == [[
@@ -74,7 +74,7 @@ def test_data_manager_random_pad(input_data):
 
 
 def test_data_manager_sequence_seq_len(input_data):
-    manager = DataManager(min_seq_len=6, batch_size=3, sampler="sequence")
+    manager = DataManager(min_seq_len=6, batch_size=3, name="sequence")
     data = manager(input_data)
     assert list(data) == [[
         ["I", "love", "you", ",", "and", "you", "love", "me", "."]
@@ -82,7 +82,7 @@ def test_data_manager_sequence_seq_len(input_data):
 
 
 def test_data_manager_random_seq_len(input_data):
-    manager = DataManager(min_seq_len=6, batch_size=3, sampler="random")
+    manager = DataManager(min_seq_len=6, batch_size=3, name="random")
     data = manager(input_data)
     assert list(data) == [[
         ["I", "love", "you", ",", "and", "you", "love", "me", "."]
@@ -91,7 +91,7 @@ def test_data_manager_random_seq_len(input_data):
 
 def test_data_manager_sequence_drop_last(input_data):
     input_data = input_data + [["1", "2", "3", "4", "5"]]
-    manager = DataManager(drop_last=True, batch_size=2, sampler="sequence")
+    manager = DataManager(drop_last=True, batch_size=2, name="sequence")
     data = manager(input_data)
     result = list(data)
     assert result == [[
@@ -105,7 +105,7 @@ def test_data_manager_sequence_drop_last(input_data):
 
 def test_data_manager_random_drop_last(input_data):
     input_data = input_data + [["1", "2", "3", "4", "5"]]
-    manager = DataManager(drop_last=True, batch_size=2, sampler="random")
+    manager = DataManager(drop_last=True, batch_size=2, name="random")
     data = manager(input_data)
     result = list(data)
     assert len(result[0][0]) == len(result[0][1])
