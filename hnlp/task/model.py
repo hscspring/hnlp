@@ -11,7 +11,7 @@ from hnlp.base import device
 from hnlp.base import convert_model_input, convert_input, convert_label
 from hnlp.base import ModelInputType
 
-from hnlp.utils import check_dir
+from hnlp.utils import check_dir, logger
 
 from hnlp.task.trainer import Trainer
 from hnlp.task.classification import BertFcClassifier
@@ -59,12 +59,12 @@ class Model(Node):
             secs = int(time.time() - start_time)
             mins = secs / 60
             secs = secs % 60
-            print('Epoch: %d' % (epoch + 1),
+            logger.info('Epoch: %d' % (epoch + 1),
                   " | time in %d minutes, %d seconds" % (mins, secs))
-            print(f'\t\
+            logger.info(f'\t\
                 Loss: {sum(train_loss)/len(train_dataloader.dataset): .4f}(train)\t\
                 Acc: {sum(train_acc)/len(train_dataloader.dataset) * 100: .1f} % (train)')
-            print(f'\t\
+            logger.info(f'\t\
                 Loss: {sum(valid_loss)/len(valid_dataloader.dataset): .4f}(valid)\t\
                 Acc: {sum(valid_acc)/len(valid_dataloader.dataset) * 100: .1f} % (valid)')
 
@@ -98,7 +98,7 @@ class Model(Node):
                 history.append(loss.item())
                 acc = (logits.argmax(1) == labels).sum().item()
                 accuracy.append(acc)
-            return history, accuracy
+        return history, accuracy
 
     @convert_model_input
     def predict(self, inputs: ModelInputType):

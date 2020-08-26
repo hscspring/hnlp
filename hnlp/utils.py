@@ -4,6 +4,11 @@ from pathlib import Path
 import pnlp
 
 import re
+import logging
+
+
+logger = logging.getLogger("hnlp")
+logger.setLevel(logging.INFO)
 
 name_split_reg = re.compile(r"[-_]")
 
