@@ -1,11 +1,42 @@
 from dataclasses import dataclass
+import importlib
 from functools import wraps, partial
 from typing import List, Tuple, Dict, TypeVar
-
+import os
 
 from torch import Tensor
 import torch
 import torch.nn as nn
+
+from hnlp.utils import check_file
+
+from pathlib import Path
+
+from addict import Dict as ADict
+import pnlp
+
+
+class TaskConfig(ADict):
+    """Dict that can get attribute by dot"""
+
+    def __init__(self, *args, **kwargs):
+        super(TaskConfig, self).__init__(*args, **kwargs)
+        # self.__dict__ = self
+
+    def to_dict(self):
+        """Serializes this instance to a Python dictionary."""
+        output = copy.deepcopy(self)
+        return output
+
+    def to_json_string(self):
+        """Serializes this instance to a JSON string."""
+        return json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n"
+
+
+root = Path(os.path.abspath(__file__)).parent
+task_config = TaskConfig(pnlp.read_json(root / "task/config.json"))
+
+transformers = importlib.import_module("transformers")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -38,6 +69,8 @@ def convert_input(inputs: ModelInputType):
         inputs = [v.to(device) for v in inputs]
         inp = dict(zip(keys, inputs))
     else:
+        print(inputs)
+        print(type(inputs))
         assert type(inputs) == dict
         inp = {k: v.to(device) for k, v in inputs.items()}
     return inp
@@ -77,33 +110,3 @@ def convert_model_input(func=None, *, target: str = "pretrained"):
         else:
             return func(self, inp)
     return wrapper
-
-
-@dataclass
-class PretrainedBaseModel:
-
-    # Here we use the `convert_model_input` mainly for those
-    # who only want a pretrained model.
-    @convert_model_input
-    def __call__(self, inputs: ModelInputType):
-        """
-        inputs element shape: [batch_size, seq_len]
-        - if output_hidden_states and output_attentions is False. Outputs is a two elements tuple:
-            - outputs[0] is the `last_hidden_state`
-            - outputs[1] is the `pooled_output`
-        - if both are True, Outputs is a four elements tuple:
-            - outputs[0] and outputs[1] like before
-            - outputs[2] is all_hidden_states, 
-              length = layer_num + 1(embedding output), 
-              all_hidden_states[-1] == outputs[0], 
-              shape is length * ([1, seq_len, hidden_size])
-            - outputs[3] is all_attentions, 
-              length = layer_num, 
-              shape is length * ([1, attention_heads_num, seq_len, seq_len])
-        """
-        if self.is_training:
-            outputs = self.model(**inputs)
-        else:
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-        return outputs

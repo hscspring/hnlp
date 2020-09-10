@@ -23,7 +23,6 @@ T = TypeVar('T', str, tuple, List[str], List[tuple], ModelInputType)
 class Node:
 
     identity = None
-    batch = False
 
     def __init__(self):
         self.nodes = [self]
@@ -32,15 +31,17 @@ class Node:
         return self.call(inputs)
 
     def call(self, inputs: T):
-        if self.batch:
+        if self.identity in ["data_manager"]:
             return self.node(inputs)
+        
         if isinstance(inputs, str) == True:
             return self.__call_str(inputs)
-        if isinstance(inputs, tuple) == True:
+        elif isinstance(inputs, tuple) == True:
             return self.__call_tuple(inputs)
         elif isinstance(inputs, list) == True:
             return self.__call_list(inputs)
         else:
+            # inputs(dict) processed by pretrained processor 
             return self.node(inputs)
 
     def __call_str(self, inputs: str):

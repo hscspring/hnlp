@@ -1,4 +1,4 @@
-import collections
+from collections import namedtuple
 from typing import Any
 from pathlib import Path
 import pnlp
@@ -8,7 +8,7 @@ import logging
 
 
 logger = logging.getLogger("hnlp")
-logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 name_split_reg = re.compile(r"[-_]")
 
@@ -32,7 +32,7 @@ def check_file(path: str):
 def build_config_from_json(json_path: str):
     js = pnlp.read_json(json_path)
     # like argparse.Namespace
-    Config = collections.namedtuple("Config", js.keys())
+    Config = namedtuple("Config", js.keys())
     return Config(**js)
 
 

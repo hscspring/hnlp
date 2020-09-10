@@ -6,6 +6,7 @@ from pnlp import cut_zhchar
 
 from transformers import BasicTokenizer
 from transformers import BertTokenizer as TransBertTokenizer
+from transformers import RobertaTokenizer as TransRobertaTokenizer
 
 from hnlp.node import Node
 from hnlp.register import Register
@@ -20,6 +21,7 @@ class Tokenizer(Node):
 
     name: str
     vocab_file: str = ""
+    merges_file: str = ""
     segmentor: callable = lambda x: x
 
     def __post_init__(self):
@@ -34,6 +36,8 @@ class Tokenizer(Node):
             self.node = DataTokenizer(self.segmentor)
         elif self.name == "bert":
             self.node = DataTokenizer(self.vocab_file)
+        elif self.name == "roberta":
+            self.node = DataTokenizer(self.vocab_file, self.merges_file)
         elif self.name == "bert_chinese_word":
             self.node = BertChineseWordTokenizer(
                 self.vocab_file, self.segmentor)
@@ -50,6 +54,23 @@ class BertTokenizer(TransBertTokenizer):
     def __post_init__(self):
         super().__init__(
             vocab_file=self.vocab_file
+        )
+
+    def __call__(self, text: str):
+        return self.encode(text)
+
+
+@Register.register
+@dataclass
+class RobertaTokenizer(TransRobertaTokenizer):
+
+    vocab_file: str
+    merges_file: str
+
+    def __post_init__(self):
+        super().__init__(
+            vocab_file=self.vocab_file,
+            merges_file=self.merges_file
         )
 
     def __call__(self, text: str):

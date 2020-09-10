@@ -5,20 +5,21 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="hnlp",
-    version="0.1",
+    version="0.0.1",
     author="Yam",
     author_email="haoshaochun@gmail.com",
     description="Humanly Deeplearning NLP.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/hscspring/hnlp",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(
+        exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[
-          'pnlp',
-          'transformers',
-          'torch',
-          'torchtext'
-      ],
+        'pnlp',
+        'transformers',
+        'torch',
+        'torchtext'
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

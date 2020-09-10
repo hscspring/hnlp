@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple, Union
 
 import torch
+from torch.utils.data.dataloader import DataLoader
 
 from hnlp.node import Node
 
@@ -9,21 +10,20 @@ from hnlp.node import Node
 @dataclass
 class PretrainedProcessor(Node):
 
-    name: str
+    name: str = "pretrained"
 
     def __post_init__(self):
         super().__init__()
-        self.identity = "pretrained_processor"
-        self.batch = True
-        if self.name == "bert":
-            self.node = BertProcessor()
+        self.identity = "processor"
+        if self.name == "pretrained":
+            self.node = PretrainedProcessor()
         else:
             raise NotImplementedError
 
 
-class BertProcessor:
+class PretrainedProcessor:
 
-    def __call__(self, batch: List[List[int]]):
+    def process_batch(self, batch: List[List[int]]):
         """
         Referenced from transformers.
         """
@@ -42,3 +42,10 @@ class BertProcessor:
             "token_type_ids": token_type_ids,
             "position_ids": position_ids
         }
+
+    def __call__(self, inputs: List[List[int]] or DataLoader):
+        if isinstance(inputs, DataLoader):
+            for batch in inputs:
+                yield self.process_batch(batch)
+        else:
+            yield self.process_batch(inputs)
