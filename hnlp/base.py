@@ -69,8 +69,6 @@ def convert_input(inputs: ModelInputType):
         inputs = [v.to(device) for v in inputs]
         inp = dict(zip(keys, inputs))
     else:
-        print(inputs)
-        print(type(inputs))
         assert type(inputs) == dict
         inp = {k: v.to(device) for k, v in inputs.items()}
     return inp
@@ -92,10 +90,12 @@ def convert_model_input(func=None, *, target: str = "pretrained"):
     def wrapper(self, *args, **kwargs):
         inputs = kwargs.get("inputs")
         labels = kwargs.get("labels")
-        if not inputs and len(args) > 0:
-            inputs = args[0]
-        if not isinstance(inputs, Tensor) and not inputs:
+        print(args)
+        print(kwargs)
+        if inputs == None and len(args) == 0:
             raise ValueError("hnlp: Invalid inputs.")
+        if inputs == None and len(args) > 0:
+            inputs = args[0]
         if not labels and len(args) > 1:
             labels = args[1]
 

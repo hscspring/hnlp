@@ -29,5 +29,4 @@ def test_model_fit():
         model_path=config.get("pretrained").get("bert"),
         is_training=True)
     train_dataloader = get_data_loader("tests/task/train.txt")
-    valid_dataloader = get_data_loader("tests/task/valid.txt")
-    model.fit(train_dataloader, valid_dataloader)
+    model.fit(train_dataloader)

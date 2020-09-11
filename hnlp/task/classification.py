@@ -17,7 +17,6 @@ class FcClassifier(nn.Module):
         super().__init__()
         self.is_training = is_training
         self.config = task_config.classifier.fc
-        print(self.config)
         self.num_labels = self.config.num_labels
         self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
         self.classifier = nn.Linear(self.config.hidden_size,

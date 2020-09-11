@@ -10,18 +10,27 @@ from hnlp.node import Node
 @dataclass
 class PretrainedProcessor(Node):
 
+    """
+    
+    Note
+    -----
+    If your input is already a tensor, then do not need this processor.
+    Because transformers will do.
+    """
+
     name: str = "pretrained"
 
     def __post_init__(self):
         super().__init__()
         self.identity = "processor"
+        self.batch_input = True
         if self.name == "pretrained":
-            self.node = PretrainedProcessor()
+            self.node = PretrainedBasicProcessor()
         else:
             raise NotImplementedError
 
 
-class PretrainedProcessor:
+class PretrainedBasicProcessor:
 
     def process_batch(self, batch: List[List[int]]):
         """

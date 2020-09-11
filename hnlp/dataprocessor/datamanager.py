@@ -95,6 +95,7 @@ class DataManager(Node):
     def __post_init__(self):
         super().__init__()
         self.identity = "data_manager"
+        self.batch_input = True
         cls_name = "_".join([self.name, self.identity])
         Manager = Register.get(cls_name)
         if not Manager:

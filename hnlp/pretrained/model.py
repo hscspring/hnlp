@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import os
 from typing import Iterable
 
+import torch
+
 from hnlp.node import Node
 from hnlp.utils import check_dir, check_file
 from hnlp.base import convert_model_input, ModelInputType, device, transformers
@@ -74,6 +76,7 @@ class Pretrained(Node):
     def __post_init__(self):
         super().__init__()
         self.identity = "pretrained"
+        self.batch_input = True
         check_dir(self.model_path)
         self.node = PretrainedBaseModel(
             self.name,
