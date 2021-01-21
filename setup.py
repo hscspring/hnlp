@@ -20,6 +20,9 @@ setuptools.setup(
         'torch',
         'torchtext'
     ],
+    package_data={
+        'hnlp': ["task/*.json"]
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

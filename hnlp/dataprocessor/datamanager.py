@@ -7,7 +7,6 @@ from torch.utils.data import Dataset
 from torch.utils.data import SequentialSampler, RandomSampler
 from torch.utils.data import BatchSampler, DataLoader
 
-
 from hnlp.node import Node
 from hnlp.register import Register
 
@@ -154,10 +153,11 @@ class MapStyleDataset(Dataset):
     data: List[List[str or int]] or List[Tuple[List[str or int], Any]]
     min_seq_len: int
     max_seq_len: int
+    dynamic_length: bool = True
+    pad_token: str = "[PAD]"
     pad_token_id: int = 0
 
     def __post_init__(self):
-        self.data = self.filter_sequences(self.data)
         self.length = len(self.data)
 
     def __getitem__(self, index: int):
@@ -201,8 +201,17 @@ class MapStyleDataset(Dataset):
             if type(ele[0]) == int:
                 return self.pad_token_id
             else:
-                return "[PAD]"
+                return self.pad_token
         max_len = max([len(item) for item in tokens])
-        padded_tokens = [
-            ele + [get_pad(ele)] * (max_len - len(ele)) for ele in tokens]
+        if self.dynamic_length:
+            max_len = min(max_len, self.max_seq_len)
+        else:
+            max_len = self.max_seq_len
+        padded_tokens = []
+        for ele in tokens:
+            if len(ele) > max_len:
+                ele = ele[:max_len]
+            else:
+                ele = ele + [get_pad(ele)] * (max_len - len(ele))
+            padded_tokens.append(ele)
         return padded_tokens
