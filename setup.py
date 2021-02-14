@@ -17,6 +17,9 @@ setuptools.setup(
     install_requires=[
         'pnlp',
     ],
+    package_data={
+        'hnlp': ["task/*.json"]
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
