@@ -1,7 +1,8 @@
 # hnlp
-Humanly DeepLearning NLP, quick demo and play.
+Humanly DeepLearning NLP, quickly demo and easily play.
 
-
+- Quickly setup a production, from 0 to 90%+, gain the maximum marginal income.
+- Quickly evaluate a new idea based on the existing datasets.
 
 
 
@@ -12,4 +13,7 @@ Humanly DeepLearning NLP, quick demo and play.
 ```bash
 $ python -m pytest
 ```
+
+
+
 

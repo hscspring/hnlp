@@ -90,8 +90,6 @@ def convert_model_input(func=None, *, target: str = "pretrained"):
     def wrapper(self, *args, **kwargs):
         inputs = kwargs.get("inputs")
         labels = kwargs.get("labels")
-        print(args)
-        print(kwargs)
         if inputs == None and len(args) == 0:
             raise ValueError("hnlp: Invalid inputs.")
         if inputs == None and len(args) > 0:

@@ -16,9 +16,6 @@ setuptools.setup(
         exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[
         'pnlp',
-        'transformers',
-        'torch',
-        'torchtext'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
