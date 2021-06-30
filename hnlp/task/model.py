@@ -1,21 +1,13 @@
 from dataclasses import dataclass
 from argparse import Namespace
 
-import os
-from pathlib import Path
 import time
-import torch
 
 from hnlp.node import Node
 from hnlp.register import Register
-from hnlp.base import device
-from hnlp.base import convert_model_input, convert_input, convert_label
-from hnlp.base import ModelInputType
-
-from hnlp.utils import check_dir, logger
-
+from hnlp.utils import convert_model_input, convert_input, convert_label
+from hnlp.config import device, ModelInputType, logger
 from hnlp.task.trainer import Trainer
-from hnlp.task.classification import FcClassifier
 
 
 @dataclass

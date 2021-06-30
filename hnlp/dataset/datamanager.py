@@ -86,8 +86,9 @@ Besides, `Dataset`, `Pipeline`, `Fields` are convenient in some occasion.
 class DataManager(Node):
 
     name: str = "random"
-    min_seq_len: int = 1
+    min_seq_len: int = 0
     max_seq_len: int = 512
+    dynamic_length: bool = True
     batch_size: int = 1
     drop_last: bool = False
 
@@ -101,6 +102,7 @@ class DataManager(Node):
             raise NotImplementedError
         self.node = Manager(self.min_seq_len,
                             self.max_seq_len,
+                            self.dynamic_length,
                             self.batch_size,
                             self.drop_last)
 
@@ -110,6 +112,7 @@ class BatchLoader:
 
     min_seq_len: int
     max_seq_len: int
+    dynamic_length: bool
     batch_size: int
     drop_last: bool
 
@@ -119,7 +122,8 @@ class BatchLoader:
         dataset = MapStyleDataset(
             inputs,
             self.min_seq_len,
-            self.max_seq_len)
+            self.max_seq_len,
+            self.dynamic_length)
         batch_sampler = BatchSampler(
             self.sampler(dataset),
             batch_size=self.batch_size,
@@ -158,6 +162,7 @@ class MapStyleDataset(Dataset):
     pad_token_id: int = 0
 
     def __post_init__(self):
+        self.data = self.filter_sequences(self.data)
         self.length = len(self.data)
 
     def __getitem__(self, index: int):
@@ -179,8 +184,7 @@ class MapStyleDataset(Dataset):
             else:
                 return len(ele)
         result = list(
-            filter(lambda x:
-                   self.min_seq_len <= x_len(x) <= self.max_seq_len, data))
+            filter(lambda x: self.min_seq_len <= x_len(x), data))
         return result
 
     def batch_sequences(self, batch):

@@ -20,7 +20,7 @@ def test_mapstyle_dataset(input_data):
 def test_mapstyle_dataset_min_len(input_data):
     ms = MapStyleDataset(input_data, 6, 512)
     assert ms.data == [["I", "love", "you", ",", "and", "you", "love", "me", "."]]
-    assert len(ms) == 1
+    assert len(ms.data) == 1
 
 
 def test_data_manager_sequence_default(input_data):
@@ -89,6 +89,16 @@ def test_data_manager_random_seq_len(input_data):
     ]]
 
 
+def test_data_manager_dynamic_length(input_data):
+    manager = DataManager(dynamic_length=False, max_seq_len=9)
+    data = manager(input_data)
+    assert list(data) == [
+        [["I", "love", "you", ",", "and", "you", "love", "me", "."]],
+        [[1, 2, 3, 4, 5, 0, 0, 0, 0]]
+    ]
+
+
+
 def test_data_manager_sequence_drop_last(input_data):
     input_data = input_data + [["1", "2", "3", "4", "5"]]
     manager = DataManager(drop_last=True, batch_size=2, name="sequence")
@@ -109,3 +119,4 @@ def test_data_manager_random_drop_last(input_data):
     data = manager(input_data)
     result = list(data)
     assert len(result[0][0]) == len(result[0][1])
+

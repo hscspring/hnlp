@@ -1,8 +1,7 @@
-from typing import List, TypeVar, Generic
+from typing import List, TypeVar
 from functools import partial
-from torch import Tensor
 
-from hnlp.base import ModelInputType, ModelLabelType
+from hnlp.config import ModelInputType, ModelLabelType
 
 """
 This is the base node for generating pipes.
@@ -17,7 +16,7 @@ Here we referenced from saveral excellent repos:
 
 """
 
-T = TypeVar('T', str, tuple, List[str], List[tuple], ModelInputType)
+T = TypeVar("T", str, tuple, List[str], List[tuple], ModelInputType)
 
 
 class Node:
@@ -34,7 +33,7 @@ class Node:
     def call(self, inputs: T):
         if self.batch_input:
             return self.node(inputs)
-        
+
         if isinstance(inputs, str) == True:
             return self.__call_str(inputs)
         elif isinstance(inputs, tuple) == True:
@@ -42,7 +41,7 @@ class Node:
         elif isinstance(inputs, list) == True:
             return self.__call_list(inputs)
         else:
-            # inputs(dict) processed by pretrained processor 
+            # inputs(dict) processed by pretrained processor
             return self.node(inputs)
 
     def __call_str(self, inputs: str):
@@ -104,13 +103,12 @@ which support N(fun1) >> N(fun2) ...
 
 We referenced this excellent design from :
 
-- https://github.com/kachayev/fn.py 
+- https://github.com/kachayev/fn.py
 
 """
 
 
 class N:
-
     def __init__(self, f=lambda arg: arg, *args, **kwargs):
         self.f = partial(f, *args, **kwargs) if any([args, kwargs]) else f
 

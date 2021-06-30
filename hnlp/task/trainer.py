@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-from typing import List, Tuple
 from argparse import Namespace
 
 import torch
 import torch.nn as nn
 
-from hnlp.base import device
+from hnlp.config import device
 from hnlp.utils import get_attr
 
 
