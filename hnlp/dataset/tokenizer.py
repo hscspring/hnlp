@@ -1,4 +1,5 @@
 import collections
+from typing import List
 from dataclasses import dataclass
 import re
 
@@ -28,21 +29,43 @@ class Tokenizer(Node):
         super().__init__()
         self.identity = "tokenizer"
         cls_name = "_".join([self.name, self.identity])
-        DataTokenizer = Register.get(cls_name)
-        if not DataTokenizer:
+        cls = Register.get(cls_name)
+        if not cls:
             raise NotImplementedError
+        self.node = cls(self.name, self.vocab_file, self.merges_file, self.segmentor)
 
-        if self.name == "chinese_word":
-            self.node = DataTokenizer(self.segmentor)
-        elif self.name == "bert":
-            self.node = DataTokenizer(self.vocab_file)
-        elif self.name == "roberta":
-            self.node = DataTokenizer(self.vocab_file, self.merges_file)
-        elif self.name == "bert_chinese_word":
-            self.node = BertChineseWordTokenizer(
-                self.vocab_file, self.segmentor)
-        else:
-            self.node = DataTokenizer()
+
+@Register.register
+@dataclass
+class SpaceTokenizer:
+
+    vocab_file: str = None
+    merges_file: str = None
+    segmentor: callable = lambda x: x.split()
+
+    def __post_init__(self):
+        super().__init__()
+
+    def tokenize(self, text: str):
+        return self.segmentor(text)
+
+    def build_vocab(self, text_list: List[str], min_freq: int = 1):
+        words = []
+        for text in text_list:
+            for w in self.tokenize(text):
+                words.append(w)
+        count = collections.Counter(words).most_common()
+        size = self.vocab_size
+        for i, (w, freq) in enumerate(count):
+            if freq > min_freq:
+                self.vocab[w] = size - 1 + i
+        self.ids_to_tokens = collections.OrderedDict(
+            [(ids, tok) for tok, ids in self.vocab.items()]
+        )
+        self.vocab_has_built = True
+
+    def __call__(self, text: str):
+        return self.tokenize(text)
 
 
 @Register.register
@@ -52,9 +75,7 @@ class BertTokenizer(TransBertTokenizer):
     vocab_file: str
 
     def __post_init__(self):
-        super().__init__(
-            vocab_file=self.vocab_file
-        )
+        super().__init__(vocab_file=self.vocab_file)
 
     def __call__(self, text: str):
         return self.encode(text)
@@ -68,10 +89,7 @@ class RobertaTokenizer(TransRobertaTokenizer):
     merges_file: str
 
     def __post_init__(self):
-        super().__init__(
-            vocab_file=self.vocab_file,
-            merges_file=self.merges_file
-        )
+        super().__init__(vocab_file=self.vocab_file, merges_file=self.merges_file)
 
     def __call__(self, text: str):
         return self.encode(text)
@@ -85,9 +103,7 @@ class BertChineseWordTokenizer(TransBertTokenizer):
     segmentor: callable
 
     def __post_init__(self):
-        super().__init__(
-            vocab_file=self.vocab_file
-        )
+        super().__init__(vocab_file=self.vocab_file)
         self.do_basic_tokenize = False
         self.vocab_has_built = False
 
@@ -108,7 +124,8 @@ class BertChineseWordTokenizer(TransBertTokenizer):
             if len(w) > 1 and freq >= min_freq:
                 self.vocab[w] = size - 1 + i
         self.ids_to_tokens = collections.OrderedDict(
-            [(ids, tok) for tok, ids in self.vocab.items()])
+            [(ids, tok) for tok, ids in self.vocab.items()]
+        )
         self.vocab_has_built = True
 
     def __call__(self, text: str):

@@ -10,7 +10,7 @@ from hnlp.utils import convert_model_input, ModelInputType, device
 
 
 @dataclass
-class TransformersModel:
+class BertPretrainedModel:
 
     name: str
     model_path: str

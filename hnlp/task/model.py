@@ -25,13 +25,12 @@ class Model(Node):
         super().__init__()
         self.identity = "task"
         self.batch = True
-        TaskModel = Register.get(self.name)
-        if not TaskModel:
+        cls = Register.get(self.name)
+        if not cls:
             raise NotImplementedError
-        task_model = TaskModel(self.is_training).to(device)
-        self.node = task_model
+        self.node = cls(self.is_training).to(device)
         if self.is_training:
-            self.trainer = Trainer(self.args, task_model)
+            self.trainer = Trainer(self.args, self.node)
         # if self.is_training:
         #     self.node = task_model
         #     self.trainer = Trainer(self.args, task_model)

@@ -18,8 +18,7 @@ pnlp.check_dir(default_data_home)
 
 root = Path(os.path.abspath(__file__)).parent
 default_fasttext_word2vec_config = pnlp.read_json(
-    root / "pretrained/fasttext/word2vec.json"
-)
+    root / "fasttext_word2vec.json")
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,3 +27,10 @@ ModelInputType = TypeVar(
     "ModelInputType", Tensor, List[List[int]], Tuple[Tensor], Dict[str, Tensor]
 )
 ModelLabelType = TypeVar("ModelLabelType", List[str], List[int], Tensor)
+
+
+def check_name(identity: str, name: str):
+    if identity == "pretrained_model":
+        return name in ["fasttext", "bert"]
+
+

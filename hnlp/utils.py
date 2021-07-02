@@ -1,5 +1,6 @@
 from collections import namedtuple
 from functools import wraps, partial
+from addict import Dict as ADict
 from pathlib import Path
 from typing import Any, Tuple
 import re
@@ -101,3 +102,12 @@ def get_attr(typ: type, attr: str, default: Any):
     if not hasattr(typ, attr):
         return default
     return getattr(typ, attr)
+
+
+def check_parameter(func):
+    @wraps(func)
+    def wrapper(config):
+        config = ADict(config)
+        return func(config)
+
+    return wrapper

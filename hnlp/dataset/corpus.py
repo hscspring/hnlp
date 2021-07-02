@@ -48,6 +48,32 @@ class Corpus(Node):
 
 @Register.register
 @dataclass
+class TextLineCorpus:
+
+    path: str
+    label_map: Dict
+    pattern: str
+
+    def __post_init__(self):
+        self.reader = Reader(self.pattern)
+
+    def __iter__(self):
+        for line in self.reader(self.path):
+            line = line.text.strip()
+            yield line
+
+    def __len__(self):
+        i = 0
+        for line in self.reader(self.path):
+            i += 1
+        return i
+
+    def __call__(self):
+        return iter(self)
+
+
+@Register.register
+@dataclass
 class CustomCorpus:
 
     path: str

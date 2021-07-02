@@ -10,7 +10,21 @@ from hnlp.config import default_model_home, default_fasttext_word2vec_config
 
 @Register.register
 @dataclass
-class FastTextModel:
+class FasttextPretrainedModel:
+
+    """
+    Parameters
+    ----------
+    name: model name, default is "word2vec"
+    path: model path, default is "~/.hnlp/model/"
+    config: model config, includes model, train, save config, default is "hnlp/config/"
+    training_type: should be one of "scratch", "continuous", or "predict"
+
+    References
+    ----------------
+    - https://radimrehurek.com/gensim/models/fasttext.html
+    - https://radimrehurek.com/gensim/auto_examples/tutorials/run_fasttext.html
+    """
 
     name: str
     path: str
@@ -32,15 +46,17 @@ class FastTextModel:
         model = fasttext.load_facebook_model(self.model_path)
         self.model = model.wv
 
-    def train(self, iter_corpus: Iterable):
+    def fit(self, iter_corpus: Iterable):
         if self.training_type == "scratch":
             self.model = FastText(**self.config.model)
-            self.model.build_vocab(sentences=iter_corpus)
-            self.model.train(sentences=iter_corpus, **self.config.train)
-        elif self.name == "continuous":
+            self.model.build_vocab(corpus_iterable=iter_corpus)
+        elif self.training_type == "continuous":
             self.model = fasttext.load_facebook_model(self.model_path)
-            self.model.build_vocab(sentences=iter_corpus, update=True)
-            self.model.train(sentences=iter_corpus, **self.config.train)
+            self.model.build_vocab(corpus_iterable=iter_corpus, update=True)
         else:
             info = "hnlp: invalid training type: {}".format(self.training_type)
             raise ValueError(info)
+        self.model.train(
+            corpus_iterable=iter_corpus, total_examples=len(iter_corpus), **self.config.train
+        )
+        fasttext.save_facebook_model(self.model, self.model_path, **self.config.save)

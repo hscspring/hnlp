@@ -18,7 +18,7 @@ setuptools.setup(
         'pnlp',
     ],
     package_data={
-        'hnlp': ["task/*.json"]
+        'hnlp': ["task/*.json", "config/*.json"]
     },
     classifiers=[
         "Programming Language :: Python :: 3",

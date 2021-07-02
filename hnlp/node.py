@@ -79,10 +79,10 @@ class Node:
         return self
 
     # for Model Node `fit`
-    def fit(self, inputs: ModelInputType, labels: ModelLabelType):
+    def fit(self, inputs: ModelInputType):
         for node in self.nodes:
             if hasattr(node, "fit"):
-                inputs = node.fit(inputs, labels)
+                inputs = node.fit(inputs)
             else:
                 inputs = node(inputs)
         return inputs
