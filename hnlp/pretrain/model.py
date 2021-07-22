@@ -1,12 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Union, Optional
 from collections.abc import Iterable
-from hnlp.register import Register
 from hnlp.node import Node
-from hnlp.config import check_name
-
-from hnlp.pretrained.fasttext_adapter import FasttextPretrainedModel
-from hnlp.pretrained.transformers_adapter import BertPretrainedModel
 
 
 @dataclass
@@ -30,15 +25,8 @@ class Pretrained(Node):
     training_type: Optional[str] = None
 
     def __post_init__(self):
-        super().__init__()
         self.identity = "pretrained_model"
-        check_name(self.identity, self.name)
-        cls_name = "_".join([self.name, self.identity])
-        cls = Register.get(cls_name)
-        if not cls:
-            info = "hnlp: invalid pretrained name: {}".format(self.name)
-            raise NotImplementedError(info)
-        self.node = cls(
+        self.node = super().get_cls(self.identity, self.name)(
             self.name, self.model_path, self.model_config, self.training_type
         )
 

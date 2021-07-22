@@ -1,201 +1,205 @@
+"""
+Tokenizer Module
+========================
+The core module of Tokenizer. Include BasicTokenizer, BertTokenizer
+Tokenizer is the last node in the chain, so we convert the result to numpy
+
+Note: We do not add model or training to our processing chain.
+"""
+
 import collections
-from typing import List
 from dataclasses import dataclass
-import re
-
-from pnlp import cut_zhchar
-
-from transformers import BasicTokenizer
-from transformers import BertTokenizer as TransBertTokenizer
-from transformers import RobertaTokenizer as TransRobertaTokenizer
+from typing import List, Callable, Union, Dict, Tuple, Any
+from numbers import Number
+import numpy as np
+import pnlp
 
 from hnlp.node import Node
+from hnlp.config import SpeToken
 from hnlp.register import Register
-
-# referenced from jieba
-re_zh = re.compile(r"([\u4E00-\u9FD5+#&._%-]+)", re.UNICODE)
-re_skip = re.compile(r"(\s)", re.U)
 
 
 @dataclass
 class Tokenizer(Node):
+    """
+    Tokenizer middleware
+
+    Parameters
+    -----------
+    name: a name for tokenizer, for example "basic", "bert"
+    vocab_file: vocab file for the tokenizer
+    max_seq_len: max sequence length for tokenizer to encode
+    segmentor: how to segment the input text
+    """
 
     name: str
     vocab_file: str = ""
-    merges_file: str = ""
-    segmentor: callable = lambda x: x
+    max_seq_len: int = 512
+    segmentor: callable = lambda x: list(x)
+    return_numpy: bool = True
 
     def __post_init__(self):
         super().__init__()
         self.identity = "tokenizer"
-        cls_name = "_".join([self.name, self.identity])
-        cls = Register.get(cls_name)
-        if not cls:
-            raise NotImplementedError
-        self.node = cls(self.name, self.vocab_file, self.merges_file, self.segmentor)
-
-
-@Register.register
-@dataclass
-class SpaceTokenizer:
-
-    vocab_file: str = None
-    merges_file: str = None
-    segmentor: callable = lambda x: x.split()
-
-    def __post_init__(self):
-        super().__init__()
-
-    def tokenize(self, text: str):
-        return self.segmentor(text)
-
-    def build_vocab(self, text_list: List[str], min_freq: int = 1):
-        words = []
-        for text in text_list:
-            for w in self.tokenize(text):
-                words.append(w)
-        count = collections.Counter(words).most_common()
-        size = self.vocab_size
-        for i, (w, freq) in enumerate(count):
-            if freq > min_freq:
-                self.vocab[w] = size - 1 + i
-        self.ids_to_tokens = collections.OrderedDict(
-            [(ids, tok) for tok, ids in self.vocab.items()]
+        self.node = super().get_cls(self.identity, self.name)(
+            self.vocab_file, self.max_seq_len, self.segmentor
         )
-        self.vocab_has_built = True
 
-    def __call__(self, text: str):
-        return self.tokenize(text)
-
-
-@Register.register
-@dataclass
-class BertTokenizer(TransBertTokenizer):
-
-    vocab_file: str
-
-    def __post_init__(self):
-        super().__init__(vocab_file=self.vocab_file)
-
-    def __call__(self, text: str):
-        return self.encode(text)
-
-
-@Register.register
-@dataclass
-class RobertaTokenizer(TransRobertaTokenizer):
-
-    vocab_file: str
-    merges_file: str
-
-    def __post_init__(self):
-        super().__init__(vocab_file=self.vocab_file, merges_file=self.merges_file)
-
-    def __call__(self, text: str):
-        return self.encode(text)
-
-
-@Register.register
-@dataclass
-class BertChineseWordTokenizer(TransBertTokenizer):
-
-    vocab_file: str
-    segmentor: callable
-
-    def __post_init__(self):
-        super().__init__(vocab_file=self.vocab_file)
-        self.do_basic_tokenize = False
-        self.vocab_has_built = False
-
-    def _tokenize(self, text: str):
-        split_tokens = []
-        for token in self.segmentor(text):
-            split_tokens.append(token)
-        return split_tokens
-
-    def build_vocab(self, text_list: list, min_freq: int = 2):
-        words = []
-        for text in text_list:
-            for w in self._tokenize(text):
-                words.append(w)
-        count = collections.Counter(words).most_common()
-        size = self.vocab_size
-        for i, (w, freq) in enumerate(count):
-            if len(w) > 1 and freq >= min_freq:
-                self.vocab[w] = size - 1 + i
-        self.ids_to_tokens = collections.OrderedDict(
-            [(ids, tok) for tok, ids in self.vocab.items()]
-        )
-        self.vocab_has_built = True
-
-    def __call__(self, text: str):
-        if self.vocab_has_built:
-            return self.encode(text)
+    # over ride Node
+    def call(self, inp: Union[str, List[str], List[Tuple[str, Any]]]):
+        if self.return_numpy:
+            # override
+            return self.node.call(inp)
         else:
-            raise ValueError("hnlp: Please build vocab first.")
+            # use Node call directly
+            return super().call(inp)
 
 
 @Register.register
 @dataclass
-class ChineseCharTokenizer:
+class BasicTokenizer:
 
-    remove_blank: bool = True
+    vocab_file: str
+    max_seq_len: int
+    segmentor: Callable
 
     def __post_init__(self):
-        self.vocab = collections.OrderedDict()
+        vocab = pnlp.read_lines(self.vocab_file)
+        unused = [SpeToken.unused.format(i) for i in range(1, 100)]
+        others = list(SpeToken.values())[1:-1]
+        self.default_tokens = [SpeToken.pad] + unused + others
+        self.load_vocab(vocab)
 
-    def tokenize(self, text: str):
-        chars = cut_zhchar(text, self.remove_blank)
-        return chars
+    def load_vocab(self, vocab: List[str]):
+        if self.check_vocab_contains_special(vocab):
+            self.vocab = vocab
+        else:
+            self.vocab = self.default_tokens + vocab
+        self.vocab_size = len(self.vocab)
+        self.word2id = self.get_word2id(self.vocab)
+        self.id2word = dict(zip(self.word2id.values(), self.word2id.keys()))
 
-    def build_vocab(self, text_list: list, min_freq: int = 2):
-        pass
+    def get_word2id(self, vocab: List[str]) -> Dict[str, int]:
+        res = {}
+        i = 0
+        for w in vocab:
+            if w not in res:
+                res[w] = i
+                i += 1
+            else:
+                continue
+        return res
 
-    def save_vocab(self, vocab_path: str):
-        pass
+    def check_vocab_contains_special(self, vocab: List[str]) -> bool:
+        return all(
+            (SpeToken.pad in vocab, SpeToken.unk in vocab, SpeToken.mask in vocab)
+        )
 
-    def encode(self, text: str):
-        pass
+    def tokenize(self, text: str) -> List[str]:
+        res = []
+        for token in self.segmentor(text):
+            res.append(token)
+        return res
 
-    def decode(self, text: str):
-        pass
+    def _encode(self, text: str) -> List[int]:
+        ids = []
+        unk_id = self.word2id.get(SpeToken.unk)
+        for token in self.tokenize(text):
+            id = self.word2id.get(token, unk_id)
+            ids.append(id)
+        return ids
 
-    @property
-    def vocab_size(self):
-        return len(self.vocab)
+    def encode(self, inputs: Union[str, List[str]]) -> List[List[int]]:
+        if isinstance(inputs, str):
+            return self._encode(inputs)
+            # inputs = [inputs]
+        res = []
+        for inp in inputs:
+            ids = self._encode(inp)
+            res.append(ids)
+        return res
 
-    def __call__(self, text: str):
-        pass
+    def padding(self, ids: List[List[int]]) -> List[List[int]]:
+        pad_id = self.word2id.get(SpeToken.pad)
+        # arr = np.zeros((len(ids), self.max_seq_len), dtype=np.int32)
+        res = []
+        for i, sen_ids in enumerate(ids):
+            length = len(sen_ids)
+            if length < self.max_seq_len:
+                pad = [pad_id] * (self.max_seq_len - length)
+                sen_ids.extend(pad)
+            else:
+                sen_ids = sen_ids[: self.max_seq_len]
+            res.append(sen_ids)
+            # arr[i] = sen_ids
+        return res
+
+    def decode(self, ids: List[int]) -> str:
+        """
+        Decode ids to tokens.
+        """
+        res = []
+        for i in ids:
+            word = self.id2word.get(i)
+            res.append(word)
+        return "".join(res)
+
+    def build_vocab(self, text_list: list, vocab_file: str, min_freq: int = 2):
+        """
+        Vocab builder
+
+        Parameters
+        ------------
+        text_list: A list of text
+        vocab_file: Where the vocab_file should locate
+        min_freq: Minimal frequence for a token,
+            any token whose frequence < min_freq will be dropped
+        """
+        vocab = self.default_tokens
+        words = []
+        for text in text_list:
+            for token in self.tokenize(text):
+                words.append(token)
+        count = collections.Counter(words).most_common()
+        for _i, (token, freq) in enumerate(count):
+            if freq >= min_freq:
+                vocab.append(token)
+        pnlp.write_file(vocab_file, vocab)
+        self.load_vocab(vocab)
+
+    def __call__(self, inp: Union[str, List[str]]):
+        return self.encode(inp)
+
+    def call(
+        self, inp: Union[str, List[str], List[Tuple[str, Any]]]
+    ) -> np.array:
+        if isinstance(inp, list) and isinstance(inp[0], tuple):
+            res = []
+            for i in range(len(inp[0])):
+                inputs = [v[i] for v in inp]
+                if isinstance(inputs[0], str):
+                    arr = self.call(inputs)
+                elif isinstance(inputs[0], Number):
+                    arr = np.array(inputs, dtype=np.float32)
+                else:
+                    info = "hnlp: invalid type of iterable item"
+                    raise ValueError(info)
+                res.append(arr)
+            return res
+        else:
+            # Here we make signle text in a list, unlike the __call__
+            if isinstance(inp, str):
+                inp = [inp]
+            ids = self.encode(inp)
+            padded = self.padding(ids)
+            return np.array(padded, dtype=np.int32)
 
 
 @Register.register
 @dataclass
-class ChineseWordTokenizer(BasicTokenizer):
-
-    segmentor: callable
-
-    def __post_init__(self):
-        self.vocab = collections.OrderedDict()
-
-    def tokenize(self, text: str):
-        for token in segmentor(text):
-            yield token
-
-    def build_vocab(self, data, min_freq: int = 2):
-        pass
-
-    def save_vocab(self, vocab_path: str):
-        pass
-
-    def encode(self, text: str):
-        pass
-
-    def decode(self, text: str):
-        pass
-
-    @property
-    def vocab_size(self):
-        return len(self.vocab)
-
-    def __call__(self, text: str):
-        pass
+class BertTokenizer(BasicTokenizer):
+    def _encode(self, text: str) -> List[int]:
+        cls_id = self.word2id.get(SpeToken.cls)
+        sep_id = self.word2id.get(SpeToken.sep)
+        ids = super()._encode(text)
+        return [cls_id] + ids + [sep_id]

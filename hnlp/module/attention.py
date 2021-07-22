@@ -1,4 +1,0 @@
-
-
-class SelfAttention():
-    pass

@@ -1,22 +1,20 @@
 from dataclasses import dataclass
-import pytest
-import torch
-from torch import Tensor
 
-from hnlp.dataprocessor.corpus import Corpus
-from hnlp.dataprocessor.preprocessor import Preprocessor
-from hnlp.dataprocessor.tokenizer import Tokenizer
-from hnlp.dataprocessor.datamanager import DataManager
+from hnlp.dataset.corpus import Corpus
+from hnlp.dataset.preprocessor import Preprocessor
+from hnlp.dataset.tokenizer import Tokenizer
+from hnlp.dataset.datamanager_pt import DataManagerPt
 from hnlp.node import Node, N
+
+vocab_path = "tests/dataset/vocab.txt"
 
 
 def test_normal_without_label():
-    data_path = "tests/dataprocessor/corpus_data_without_label.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
-    corpus = Corpus("custom")
-    preprocessor = Preprocessor("common")
-    tokenizer = Tokenizer("bert", vocab_path)
-    datamanager = DataManager()
+    data_path = "tests/dataset/corpus/unlabeled/file1.txt"
+    corpus = Corpus("unlabeled")
+    preprocessor = Preprocessor("clean")
+    tokenizer = Tokenizer("bert", vocab_path, return_numpy=False)
+    datamanager = DataManagerPt()
 
     data = datamanager(tokenizer(preprocessor(corpus(data_path))))
     assert len(data) == 10
@@ -34,12 +32,11 @@ def test_normal_without_label():
 
 
 def test_normal_with_label():
-    data_path = "tests/dataprocessor/corpus_data.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
-    corpus = Corpus("custom")
-    preprocessor = Preprocessor("common")
-    tokenizer = Tokenizer("bert", vocab_path)
-    datamanager = DataManager(batch_size=2)
+    data_path = "tests/dataset/corpus/labeled/file1.json"
+    corpus = Corpus("labeled")
+    preprocessor = Preprocessor("clean")
+    tokenizer = Tokenizer("bert", vocab_path, return_numpy=False)
+    datamanager = DataManagerPt(batch_size=2)
 
     data = datamanager(tokenizer(preprocessor(corpus(data_path))))
     assert len(data) == 5
@@ -54,18 +51,19 @@ def test_normal_with_label():
         assert type(batch_x[0]) == list
         # tokens
         assert len(batch_x[1]) > 1
-        assert batch_y[0] in ["1", "0"]
+        assert batch_y[0] in [1, 0]
         i += 1
     assert i == 5
 
 
 def test_pipeline_without_label():
-    data_path = "tests/dataprocessor/corpus_data_without_label.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
-    pipe = (Corpus("custom") >>
-            Preprocessor("common") >>
-            Tokenizer("bert", vocab_path) >>
-            DataManager(batch_size=2))
+    data_path = "tests/dataset/corpus/unlabeled/file1.txt"
+    pipe = (
+        Corpus("unlabeled")
+        >> Preprocessor("clean")
+        >> Tokenizer("bert", vocab_path, return_numpy=False)
+        >> DataManagerPt(batch_size=2)
+    )
     data = pipe.run(data_path)
     assert len(data) == 5
     i = 0
@@ -82,12 +80,13 @@ def test_pipeline_without_label():
 
 
 def test_pipeline_with_label():
-    data_path = "tests/dataprocessor/corpus_data.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
-    pipe = (Corpus("custom") >>
-            Preprocessor("common") >>
-            Tokenizer("bert", vocab_path) >>
-            DataManager(batch_size=3, drop_last=True))
+    data_path = "tests/dataset/corpus/labeled/file1.json"
+    pipe = (
+        Corpus("labeled")
+        >> Preprocessor("clean")
+        >> Tokenizer("bert", vocab_path, return_numpy=False)
+        >> DataManagerPt(batch_size=3, drop_last=True)
+    )
     data = pipe.run(data_path)
     assert len(data) == 3
     i = 0
@@ -101,18 +100,17 @@ def test_pipeline_with_label():
         assert type(batch_x[0]) == list
         # tokens
         assert len(batch_x[1]) > 1
-        assert batch_y[0] in ["1", "0"]
+        assert batch_y[0] in [1, 0]
         i += 1
     assert i == 3
 
 
 def test_functional_pipeline_without_label():
-    data_path = "tests/dataprocessor/corpus_data_without_label.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
-    corpus = Corpus("custom")
-    preprocessor = Preprocessor("common")
-    tokenizer = Tokenizer("bert", vocab_path)
-    datamanager = DataManager(batch_size=2)
+    data_path = "tests/dataset/corpus/unlabeled/file1.txt"
+    corpus = Corpus("unlabeled")
+    preprocessor = Preprocessor("clean")
+    tokenizer = Tokenizer("bert", vocab_path, return_numpy=False)
+    datamanager = DataManagerPt(batch_size=2)
     pipe = N(corpus) >> N(preprocessor) >> N(tokenizer) >> N(datamanager)
     data = pipe(data_path)
     assert len(data) == 5
@@ -130,12 +128,11 @@ def test_functional_pipeline_without_label():
 
 
 def test_functional_pipeline_with_label():
-    data_path = "tests/dataprocessor/corpus_data.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
-    corpus = Corpus("custom")
-    preprocessor = Preprocessor("common")
-    tokenizer = Tokenizer("bert", vocab_path)
-    datamanager = DataManager(batch_size=3, drop_last=True)
+    data_path = "tests/dataset/corpus/labeled/file1.json"
+    corpus = Corpus("labeled")
+    preprocessor = Preprocessor("clean")
+    tokenizer = Tokenizer("bert", vocab_path, return_numpy=False)
+    datamanager = DataManagerPt(batch_size=3, drop_last=True)
     pipe = N(corpus) >> N(preprocessor) >> N(tokenizer) >> N(datamanager)
     data = pipe(data_path)
     assert len(data) == 3
@@ -150,26 +147,26 @@ def test_functional_pipeline_with_label():
         assert type(batch_x[0]) == list
         # tokens
         assert len(batch_x[1]) > 1
-        assert batch_y[0] in ["1", "0"]
+        assert batch_y[0] in [1, 0]
         i += 1
     assert i == 3
 
 
 def test_custom_node_without_label():
-    data_path = "tests/dataprocessor/corpus_data_without_label.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
+    data_path = "tests/dataset/corpus/unlabeled/file1.txt"
 
     @dataclass
     class CustomPreprocessor(Node):
-
         def __post_init__(self):
             super().__init__()
-            self.node = lambda x : x
+            self.node = lambda x: x
 
-    pipe = (Corpus("custom") >>
-            CustomPreprocessor() >>
-            Tokenizer("bert", vocab_path) >>
-            DataManager(batch_size=32))
+    pipe = (
+        Corpus("unlabeled")
+        >> CustomPreprocessor()
+        >> Tokenizer("bert", vocab_path, return_numpy=False)
+        >> DataManagerPt(batch_size=32)
+    )
     data = pipe.run(data_path)
     assert len(data) == 1
     i = 0
@@ -186,20 +183,20 @@ def test_custom_node_without_label():
 
 
 def test_custom_node_with_label():
-    data_path = "tests/dataprocessor/corpus_data.txt"
-    vocab_path = "tests/dataprocessor/vocab.txt"
+    data_path = "tests/dataset/corpus/labeled/file1.json"
 
     @dataclass
     class CustomPreprocessor(Node):
-
         def __post_init__(self):
             super().__init__()
-            self.node = lambda x : x
+            self.node = lambda x: x
 
-    pipe = (Corpus("custom") >>
-            CustomPreprocessor() >>
-            Tokenizer("bert", vocab_path) >>
-            DataManager(batch_size=5))
+    pipe = (
+        Corpus("labeled")
+        >> CustomPreprocessor()
+        >> Tokenizer("bert", vocab_path, return_numpy=False)
+        >> DataManagerPt(batch_size=5)
+    )
     data = pipe.run(data_path)
     assert len(data) == 2
     i = 0
@@ -213,6 +210,6 @@ def test_custom_node_with_label():
         assert type(batch_x[0]) == list
         # tokens
         assert len(batch_x[1]) > 1
-        assert batch_y[0] in ["1", "0"]
+        assert batch_y[0] in [1, 0]
         i += 1
     assert i == 2

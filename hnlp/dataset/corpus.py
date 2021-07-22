@@ -1,6 +1,17 @@
-from dataclasses import dataclass
-from typing import Optional, Dict
-import json
+"""
+Corpus Module
+================
+
+The core module of Corpus. Support LabeledCorpus and UnLabeledCorpus.
+"""
+
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Tuple
+from addict import Dict as ADict
+from pyarrow import json as pjson
+from pyarrow import concat_tables
+import pandas as pd
+from sklearn.utils import shuffle
 from pnlp import Reader
 
 
@@ -12,28 +23,33 @@ from hnlp.register import Register
 class Corpus(Node):
 
     """
+    Corpus middleware.
 
     Parameters
     -----------
-    name: corpus name
-    path: corpus path, could be a directory or file.
-        Each line of data MUST BE JSON, which contains "text" and "label" keys
-    pattern: file pattern for file names
+    name: Corpus name
+        Could be "labeled" or "unlabeled"
+    pattern: File pattern for file names in the given directory
+        If you input a file (not a directory), it won't work
+        The default value is "*.*"
+    keys: For labeled dataset, your file(s) should be json format with several keys
+        The default value is ("text", "label")
+    shuffle: Whether to shuffle the input data
+    label_map: A Dict to convert your string label to integer
     """
 
     name: str
-    path: Optional[str]
-    label_map: Optional[Dict[str, int]] = None
-    pattern: str = ".json"
+    pattern: str = "*.*"
+    keys: Optional[Tuple[str, str]] = field(default_factory=lambda: ("text", "label"))
+    shuffle: bool = True
+    label_map: Dict[str, int] = field(default_factory=lambda: ADict())
 
     def __post_init__(self):
         super().__init__()
         self.identity = "corpus"
-        cls_name = "_".join([self.name, self.identity])
-        CorpusData = Register.get(cls_name)
-        if not CorpusData:
-            raise NotImplementedError
-        self.node = CorpusData(self.path, self.label_map, self.pattern)
+        self.node = super().get_cls(self.identity, self.name)(
+            self.pattern, self.keys, self.shuffle, self.label_map
+        )
 
     def __len__(self):
         return len(self.node)
@@ -42,67 +58,111 @@ class Corpus(Node):
         for item in self.node:
             yield item
 
-    def __call__(self):
-        return self.node()
+    def __getitem__(self, i: int):
+        return self.node[i]
 
 
 @Register.register
 @dataclass
-class TextLineCorpus:
+class LabeledCorpus:
 
-    path: str
-    label_map: Dict
+    """
+    LabeledCorpus module
+
+    Only support lines of json file. Each file should contain a "text" key and a "label" key.
+
+    Parameters
+    -----------
+    path: json corpus file.
+    """
+
     pattern: str
+    keys: Optional[Tuple[str, str]]
+    shuffle: bool
+    label_map: Dict[str, int]
 
     def __post_init__(self):
-        self.reader = Reader(self.pattern)
+        self.keys = list(self.keys)
+        self.data = pd.DataFrame()
+        self.reader = Reader()
+
+    def read_json(self, path: str) -> pd.DataFrame:
+        res = []
+        for js_file in self.reader.gen_files(path, self.pattern):
+            table = pjson.read_json(js_file)
+            res.append(table)
+        tab = concat_tables(res)
+        df = tab.to_pandas()
+        return df
+
+    def extract_and_transform(self, df: pd.DataFrame):
+        if self.label_map:
+            df["label"] = df["label"].apply(lambda x: self.label_map.get(x))
+        data = df[self.keys]
+        return data
+
+    def __len__(self):
+        return self.data.shape[0]
 
     def __iter__(self):
-        for line in self.reader(self.path):
-            line = line.text.strip()
+        for v in self.data.itertuples(index=False):
+            yield tuple(v)
+
+    def __getitem__(self, i: int):
+        return self.data.iloc[i]
+
+    def __call__(self, path: str):
+        df = self.read_json(path)
+        self.data = self.extract_and_transform(df)
+        if self.shuffle:
+            self.data = shuffle(self.data)
+        res = []
+        for v in self:
+            res.append(v)
+        return res
+
+
+@Register.register
+@dataclass
+class UnlabeledCorpus:
+    """
+    UnlabeldCorpus module
+
+    Parameters
+    -----------
+    pattern: Pattern for file in the directory
+    label_map: Label map for input, should ignore
+    """
+
+    pattern: str
+    keys: Optional[Tuple[str, str]]
+    shuffle: bool
+    label_map: dict
+
+    def __post_init__(self):
+        self.data = []
+        self.reader = Reader(self.pattern)
+        self._len = 0
+
+    def read_file(self, path: str):
+        data = []
+        for line in self.reader(path):
+            self._len += 1
+            data.append(line.text.strip())
+        return data
+
+    def __iter__(self):
+        for line in self.data:
             yield line
 
     def __len__(self):
-        i = 0
-        for line in self.reader(self.path):
-            i += 1
-        return i
+        return self._len
 
-    def __call__(self):
-        return iter(self)
+    def __getitem__(self, i):
+        return self.data[i]
 
-
-@Register.register
-@dataclass
-class CustomCorpus:
-
-    path: str
-    label_map: Dict[str, int]
-    pattern: str
-
-    def __post_init__(self):
-        self.reader = Reader(self.pattern)
-
-    def __iter__(self):
-        for line in self.reader(self.path):
-            js = json.loads(line.text.strip())
-            label = js["label"]
-            if label:
-                if isinstance(label, str):
-                    label = self.label_map[label]
-                elif isinstance(label, list):
-                    label = [self.label_map[v] for v in label]
-                else:
-                    info = "hnlp: invalid label, must be str integer or list of str integer"
-                    raise ValueError(info)
-                js["label"] = label
-            yield js
-
-    def __call__(self):
-        return iter(self)
-
-    def __len__(self):
-        i = 0
-        for line in self.reader(self.path):
-            i += 1
-        return i
+    def __call__(self, path: str):
+        self.data = self.read_file(path)
+        if self.shuffle:
+            self.data = shuffle(self.data)
+        return self.data
