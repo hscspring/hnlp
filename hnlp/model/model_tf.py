@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from addict import Dict as ADict
 import tensorflow as tf
 import tensorflow.keras as tfk
@@ -5,16 +6,21 @@ import tensorflow.keras as tfk
 from hnlp.layer.pretrained_tf import PretrainedBert, PretrainedWord2vec
 
 
-def pretrained(config, inputs, mask=None):
+def pretrained(config: Dict[str, Any], inputs, mask=None, training=False):
+    """
+
+    Parameters
+    -----------
+    config: Config dict
+    inputs: (None, seq_len)
+    mask: (None, seq_len)
+    """
     config = ADict(config)
     if config.use_pretrained_bert:
         layer = PretrainedBert(config.pretrained_bert_path, config.fix_pretrained)(
-            inputs, mask
+            inputs, mask, training
         )
-        if config.use_cls:
-            embed = layer[1]
-        else:
-            embed = layer[0]
+        return layer
     else:
         if config.use_pretrained_word2vec:
             embed = PretrainedWord2vec(
@@ -27,13 +33,17 @@ def pretrained(config, inputs, mask=None):
     return embed
 
 
-def text_cnn(config, embed):
+def text_cnn(config: Dict[str, Any], embed):
     """
 
     Parameters
     -----------
-    config:
-    embed: None, seq_len, embed_size
+    config: Config dict
+    embed: (None, seq_len, embed_size)
+
+    Note
+    ---------
+    Dropout has been added for output concat
     """
     config = ADict(config)
     embed = embed[:, :, :, None]
@@ -64,9 +74,17 @@ def text_cnn(config, embed):
     return z
 
 
-def gru(config, embed, mask):
+def text_gru(config: Dict[str, Any], embed, mask):
+    """
+
+    Parameters
+    ----------
+    config: Config dict
+    embed: (None, seq_len, embed_size)
+    mask: (None, seq_len)
+
+    """
     config = ADict(config)
-    z = tfk.layers.Dropout(config.dropout)(embed)
-    z = tfk.layers.GRU(config.hidden_size, return_sequences=True)(z, mask=mask)
+    z = tfk.layers.GRU(config.hidden_size, return_sequences=True)(embed, mask=mask)
     z = tfk.layers.GRU(config.hidden_size)(z)
     return z

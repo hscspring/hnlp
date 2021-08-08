@@ -3,4 +3,7 @@ from hnlp.register import Register
 
 
 from hnlp.dataset import Corpus, Preprocessor, Tokenizer, MapStyleDataset, DataManagerPt
-from hnlp.model import pretrained, text_cnn, gru
+from hnlp.model import pretrained, text_cnn, text_gru
+
+
+from hnlp.sampler import gen_input, gen_hidden

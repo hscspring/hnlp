@@ -1,5 +1,5 @@
 from hnlp.config import ARCH
 if ARCH == "tf":
-    from hnlp.model.model_tf import pretrained, text_cnn, text_gru
+    from hnlp.sampler.sampler_tf import gen_input, gen_hidden
 else:
     raise NotImplemented

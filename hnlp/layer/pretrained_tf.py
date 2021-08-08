@@ -31,6 +31,13 @@ class PretrainedWord2vec(tfk.layers.Layer):
 
 class PretrainedBert(tfk.layers.Layer):
 
+    """
+    Note
+    -------
+    trainable to control the whole net or some layer
+    training to control the net is running with the infer mode
+    """
+
     def __init__(self, pretrained_path: str, fix_pretrained: bool):
         super(PretrainedBert, self).__init__()
         config_path = os.path.join(str(pretrained_path), "bert_config.json")
@@ -39,5 +46,5 @@ class PretrainedBert(tfk.layers.Layer):
         self.bert = TFAutoModel.from_config(config)
         self.bert.trainable = trainable
 
-    def call(self, inputs, mask):
-        return self.bert(**{"input_ids": inputs, "attention_mask": mask}, training=False)
+    def call(self, inputs, mask, training):
+        return self.bert(**{"input_ids": inputs, "attention_mask": mask}, training=training)
