@@ -5,7 +5,7 @@ tf.random.set_seed(42)
 
 
 def gen_input(
-    inp_num: int = 1, label_num: int = 2, batch_size: int = 3, seq_len: int = 20
+        batch_size: int = 3, seq_len: int = 20, inp_num: int = 1, label_num: int = 2
 ):
     res = []
     for i in range(inp_num):
@@ -23,7 +23,5 @@ def gen_input(
     return tuple(res)
 
 
-def gen_hidden(batch_size: int = 3, seq_len: int = 20, hidden_size: int = 256):
-    return tf.random.uniform(
-        shape=(batch_size, seq_len, hidden_size), minval=0, maxval=1, dtype=tf.float32
-    )
+def gen_hidden(*shape):
+    return tf.random.uniform(shape=shape, minval=0, maxval=1, dtype=tf.float32)

@@ -6,7 +6,9 @@ import tensorflow.keras as tfk
 from hnlp.layer.pretrained_tf import PretrainedBert, PretrainedWord2vec
 
 
-def pretrained(config: Dict[str, Any], inputs, mask=None, training=False):
+def pretrained(
+    config: Dict[str, Any], inputs, mask=None, token_type_ids=None, training=False
+):
     """
 
     Parameters
@@ -21,16 +23,13 @@ def pretrained(config: Dict[str, Any], inputs, mask=None, training=False):
             inputs, mask, training
         )
         return layer
+    elif config.use_pretrained_word2vec:
+        embed = PretrainedWord2vec(
+            config.pretrained_word2vec_path, config.fix_pretrained
+        )(inputs)
+        return embed
     else:
-        if config.use_pretrained_word2vec:
-            embed = PretrainedWord2vec(
-                config.pretrained_word2vec_path, config.fix_pretrained
-            )(inputs)
-        else:
-            embed = tfk.layers.Embedding(
-                config.vocab_size + config.num_oov_buckets, config.embed_size
-            )(inputs)
-    return embed
+        raise NotImplementedError
 
 
 def text_cnn(config: Dict[str, Any], embed):

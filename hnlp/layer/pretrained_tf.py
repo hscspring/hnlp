@@ -10,7 +10,6 @@ from transformers import TFAutoModel, AutoConfig
 
 
 class PretrainedWord2vec(tfk.layers.Layer):
-
     def __init__(self, pretrained_path: str, fix_pretrained: bool):
         super(PretrainedWord2vec, self).__init__()
         trainable = not fix_pretrained
@@ -20,9 +19,10 @@ class PretrainedWord2vec(tfk.layers.Layer):
         vocab_size = embed_tensor.shape[0]
         embed_size = embed_tensor.shape[1]
         self.embed = tfk.layers.Embedding(
-            vocab_size, embed_size,
+            vocab_size,
+            embed_size,
             embeddings_initializer=tf.keras.initializers.Constant(embed_tensor),
-            trainable=trainable
+            trainable=trainable,
         )
 
     def call(self, inputs):
@@ -46,5 +46,12 @@ class PretrainedBert(tfk.layers.Layer):
         self.bert = TFAutoModel.from_config(config)
         self.bert.trainable = trainable
 
-    def call(self, inputs, mask, training):
-        return self.bert(**{"input_ids": inputs, "attention_mask": mask}, training=training)
+    def call(self, inputs, mask, token_type_ids, training):
+        return self.bert(
+            **{
+                "input_ids": inputs,
+                "attention_mask": mask,
+                "token_type_ids": token_type_ids,
+            },
+            training=training
+        )

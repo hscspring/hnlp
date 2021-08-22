@@ -35,7 +35,12 @@ class Corpus(Node):
     keys: For labeled dataset, your file(s) should be json format with several keys
         The default value is ("text", "label")
     shuffle: Whether to shuffle the input data
-    label_map: A Dict to convert your string label to integer
+    label_map: A Dict to convert your string label to Number, if the label is Number, you do not need to set
+        The default value is ADict()
+
+    Note
+    -----
+    Your string label will be treated as an input text. Unless you've converted them to Number by using the label_map.
     """
 
     name: str
