@@ -1,0 +1,31 @@
+{
+    "model": {
+        "model": "cbow",
+        "vector_size": 100,
+        "alpha": 0.025,
+        "window": 5,
+        "min_count": 5,
+        "loss": "ns",
+        "sample": 0.001,
+        "negative": 5,
+        "epochs": 5,
+        "sorted_vocab": 1,
+        "threads": 12,
+        "min_n": 3,
+        "max_n": 6,
+        "bucket": 2000000
+    },
+    "train": {
+        "epochs": 10,
+        "start_alpha": null,
+        "end_alpha": null,
+        "word_count": 0,
+        "queue_factor": 2,
+        "report_delay": 1.0,
+        "compute_loss": false
+    },
+    "save": {
+        "lr_update_rate": 100,
+        "word_ngrams": 1
+    }
+}

@@ -1,21 +1,12 @@
 from dataclasses import dataclass
 from argparse import Namespace
 
-import os
-from pathlib import Path
 import time
-import torch
 
 from hnlp.node import Node
-from hnlp.register import Register
-from hnlp.base import device
-from hnlp.base import convert_model_input, convert_input, convert_label
-from hnlp.base import ModelInputType
-
-from hnlp.utils import check_dir, logger
-
+from hnlp.converter import convert_model_input, convert_input, convert_label
+from hnlp.config import device, ModelInputType, logger
 from hnlp.task.trainer import Trainer
-from hnlp.task.classification import FcClassifier
 
 
 @dataclass
@@ -30,16 +21,10 @@ class Model(Node):
     args: Namespace = Namespace()
 
     def __post_init__(self):
-        super().__init__()
         self.identity = "task"
-        self.batch = True
-        TaskModel = Register.get(self.name)
-        if not TaskModel:
-            raise NotImplementedError
-        task_model = TaskModel(self.is_training).to(device)
-        self.node = task_model
+        self.node = super().get_cls(self.identity, self.name)(self.is_training).to(device)
         if self.is_training:
-            self.trainer = Trainer(self.args, task_model)
+            self.trainer = Trainer(self.args, self.node)
         # if self.is_training:
         #     self.node = task_model
         #     self.trainer = Trainer(self.args, task_model)

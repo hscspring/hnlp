@@ -1,14 +1,11 @@
 from collections import namedtuple
-from typing import Any
+from functools import wraps
+from addict import Dict as ADict
 from pathlib import Path
+from typing import Any
+import re
 import pnlp
 
-import re
-import logging
-
-
-logger = logging.getLogger("hnlp")
-logging.basicConfig(level=logging.INFO)
 
 name_split_reg = re.compile(r"[-_]")
 
@@ -36,9 +33,7 @@ def build_config_from_json(json_path: str):
     return Config(**js)
 
 
-def build_pretrained_config_from_json(
-        pretrained_config,
-        json_path: str):
+def build_pretrained_config_from_json(pretrained_config, json_path: str):
     js = pnlp.read_json(json_path)
     return pretrained_config(**js)
 
@@ -47,3 +42,12 @@ def get_attr(typ: type, attr: str, default: Any):
     if not hasattr(typ, attr):
         return default
     return getattr(typ, attr)
+
+
+def check_parameter(func):
+    @wraps(func)
+    def wrapper(config):
+        config = ADict(config)
+        return func(config)
+
+    return wrapper

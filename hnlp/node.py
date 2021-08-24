@@ -1,14 +1,13 @@
-from typing import List, TypeVar, Generic
+from typing import List, TypeVar
 from functools import partial
-from torch import Tensor
-
-from hnlp.base import ModelInputType, ModelLabelType
+from hnlp.register import Register
 
 """
 This is the base node for generating pipes.
 
 Actually the deeplearning process is just like a pipeline,
 data is not that important for the framework.
+Especially for the data processing.
 
 Here we referenced from saveral excellent repos:
 
@@ -17,59 +16,67 @@ Here we referenced from saveral excellent repos:
 
 """
 
-T = TypeVar('T', str, tuple, List[str], List[tuple], ModelInputType)
+
+T = TypeVar("T", str, tuple, List[str], List[tuple])
 
 
 class Node:
 
     identity = None
-    batch_input = False
 
     def __init__(self):
         self.nodes = [self]
 
-    def __call__(self, inputs: T):
+    def get_cls(self, identity: str, name: str):
+        cls_name = "_".join([name, identity])
+        cls = Register.get(cls_name)
+        if not cls:
+            raise NotImplementedError
+        return cls
+
+    def __call__(self, inputs):
         return self.call(inputs)
 
     def call(self, inputs: T):
-        if self.batch_input:
-            return self.node(inputs)
-        
-        if isinstance(inputs, str) == True:
+
+        if isinstance(inputs, str):
             return self.__call_str(inputs)
-        elif isinstance(inputs, tuple) == True:
+        elif isinstance(inputs, tuple):
             return self.__call_tuple(inputs)
-        elif isinstance(inputs, list) == True:
+        elif isinstance(inputs, list):
             return self.__call_list(inputs)
         else:
-            # inputs(dict) processed by pretrained processor 
             return self.node(inputs)
 
     def __call_str(self, inputs: str):
         return self.node(inputs)
 
     def __call_tuple(self, inputs: tuple):
-        tmp = [self.node(inputs[0])]
-        for ele in inputs[1:]:
-            tmp.append(ele)
-        return tuple(tmp)
+        res = []
+        for ele in inputs:
+            if isinstance(ele, str):
+                out = self.node(ele)
+            else:
+                out = ele
+            res.append(out)
+        return tuple(res)
 
     def __call_list(self, inputs: list):
         result = []
         # most node only accept str input.
         for inp in inputs:
-            if isinstance(inp, tuple) == True:
-                new = self.__call_tuple(inp)
+            if isinstance(inp, tuple):
+                out = self.__call_tuple(inp)
             else:
-                new = self.node(inp)
-            result.append(new)
+                out = self.node(inp)
+            result.append(out)
         return result
 
     # for pipeline
     # All calls are happened on the Middleware Layer (Corpus, Tokenizer, etc.)
     # We DONOT call the actual object.
 
-    def run(self, inputs: T):
+    def run(self, inputs):
         for node in self.nodes:
             # this is actually the above `__call__` function
             inputs = node(inputs)
@@ -79,24 +86,6 @@ class Node:
         self.nodes.append(other)
         return self
 
-    # for Model Node `fit`
-    def fit(self, inputs: ModelInputType, labels: ModelLabelType):
-        for node in self.nodes:
-            if hasattr(node, "fit"):
-                inputs = node.fit(inputs, labels)
-            else:
-                inputs = node(inputs)
-        return inputs
-
-    # for Model Node `predict`
-    def predict(self, inputs: ModelInputType):
-        for node in self.nodes:
-            if hasattr(node, "predict"):
-                inputs = node.predict(inputs)
-            else:
-                inputs = node(inputs)
-        return inputs
-
 
 """
 This is a functional pipeline tools
@@ -104,13 +93,12 @@ which support N(fun1) >> N(fun2) ...
 
 We referenced this excellent design from :
 
-- https://github.com/kachayev/fn.py 
+- https://github.com/kachayev/fn.py
 
 """
 
 
 class N:
-
     def __init__(self, f=lambda arg: arg, *args, **kwargs):
         self.f = partial(f, *args, **kwargs) if any([args, kwargs]) else f
 

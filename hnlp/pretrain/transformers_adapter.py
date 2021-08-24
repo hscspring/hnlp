@@ -3,14 +3,14 @@ import os
 from typing import Iterable
 
 import torch
+import transformers
 
-from hnlp.node import Node
-from hnlp.utils import check_dir, check_file
-from hnlp.base import convert_model_input, ModelInputType, device, transformers
+from hnlp.utils import check_file
+from hnlp.utils import convert_model_input, ModelInputType, device
 
 
 @dataclass
-class PretrainedBaseModel:
+class BertPretrainedModel:
 
     name: str
     model_path: str
@@ -27,8 +27,9 @@ class PretrainedBaseModel:
         config.output_hidden_states = self.output_hidden_states
         config.output_attentions = self.output_attentions
         if self.is_training:
-            self.model = ModelClass.from_pretrained(
-                self.model_path, config=config).to(device)
+            self.model = ModelClass.from_pretrained(self.model_path, config=config).to(
+                device
+            )
         else:
             self.model = ModelClass(config).to(device)
 
@@ -43,12 +44,12 @@ class PretrainedBaseModel:
             - outputs[1] is the `pooled_output`
         - if both are True, Outputs is a four elements tuple:
             - outputs[0] and outputs[1] like before
-            - outputs[2] is all_hidden_states, 
-              length = layer_num + 1(embedding output), 
-              all_hidden_states[-1] == outputs[0], 
+            - outputs[2] is all_hidden_states,
+              length = layer_num + 1(embedding output),
+              all_hidden_states[-1] == outputs[0],
               shape is length * ([1, seq_len, hidden_size])
-            - outputs[3] is all_attentions, 
-              length = layer_num, 
+            - outputs[3] is all_attentions,
+              length = layer_num,
               shape is length * ([1, attention_heads_num, seq_len, seq_len])
         """
         if self.is_training:
@@ -61,26 +62,3 @@ class PretrainedBaseModel:
     def __call__(self, inputs: Iterable):
         for batch in inputs:
             yield self.call_batch(batch)
-        
-
-
-@dataclass
-class Pretrained(Node):
-
-    name: str
-    model_path: str
-    is_training: bool = False
-    output_hidden_states: bool = False
-    output_attentions: bool = False
-
-    def __post_init__(self):
-        super().__init__()
-        self.identity = "pretrained"
-        self.batch_input = True
-        check_dir(self.model_path)
-        self.node = PretrainedBaseModel(
-            self.name,
-            self.model_path,
-            self.is_training,
-            self.output_hidden_states,
-            self.output_attentions)

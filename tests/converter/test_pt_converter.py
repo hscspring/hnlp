@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 import torch
-from hnlp.base import convert_model_input
+from hnlp.converter.converter_pt import convert_model_input
+
 
 def test_convert_model_input():
     @dataclass
     class A:
-
         @convert_model_input
         def __call__(self, inputs):
             return inputs
@@ -20,7 +20,6 @@ def test_convert_model_input():
 def test_convert_model_input_with_parameter():
     @dataclass
     class A:
-
         @convert_model_input(target="pretrained")
         def __call__(self, inputs):
             return inputs
@@ -35,7 +34,6 @@ def test_convert_model_input_with_parameter():
 def test_convert_model_input_with_not_implemented():
     @dataclass
     class A:
-
         @convert_model_input(target="other")
         def __call__(self, inputs):
             return inputs
@@ -50,7 +48,6 @@ def test_convert_model_input_with_not_implemented():
 def test_convert_model_input_with_one_label():
     @dataclass
     class A:
-
         @convert_model_input
         def fit(self, inputs, labels):
             return inputs["input_ids"] * labels
@@ -64,11 +61,9 @@ def test_convert_model_input_with_one_label():
     assert yp.sum_to_size(1).tolist()[0] == 4
 
 
-
 def test_convert_model_input_with_one_label_str():
     @dataclass
     class A:
-
         @convert_model_input
         def fit(self, inputs, labels):
             return inputs["input_ids"] * labels
@@ -85,13 +80,12 @@ def test_convert_model_input_with_one_label_str():
 def test_convert_model_input_with_none():
     @dataclass
     class A:
-
         @convert_model_input
         def fit(self, inputs, labels):
             return inputs["input_ids"] * labels
+
     a = A()
     try:
-        yp = a.fit()
+        a.fit()
     except Exception as e:
         assert "Invalid inputs" in str(e)
-
