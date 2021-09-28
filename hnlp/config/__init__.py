@@ -8,31 +8,33 @@ import numpy as np
 import torch
 from torch import Tensor
 
+
 ARCH = os.environ.get("ARCH") or "tf"
-
-logger = logging.getLogger("hnlp")
-logging.basicConfig(level=logging.INFO)
-
-home = Path.home() / ".hnlp"
-default_model_home = home / "model"
-default_data_home = home / "dataset"
-pnlp.check_dir(default_model_home)
-pnlp.check_dir(default_data_home)
-
-
-root = Path(os.path.abspath(__file__)).parent
-default_fasttext_word2vec_config = pnlp.read_json(root / "fasttext_word2vec.json")
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 ModelInputType = TypeVar("ModelInputType", np.array, Tensor, Dict[str, Tensor])
 ModelLabelType = TypeVar("ModelLabelType", List[str], List[int], Tensor)
 
 
-def check_name(identity: str, name: str):
-    if identity == "pretrained_model":
-        return name in ["fasttext", "bert"]
+logger = logging.getLogger("hnlp")
+logging.basicConfig(level=logging.INFO)
+
+home = Path.home() / ".hnlp"
+model_home = home / "model"
+data_home = home / "dataset"
+pnlp.check_dir(model_home)
+pnlp.check_dir(data_home)
+
+
+root = Path(os.path.abspath(__file__)).parent
+
+model_config = ADict(
+    {
+        "fasttext_word2vec": pnlp.read_json(root / "fasttext_word2vec.json"),
+        "text_cnn": pnlp.read_json(root / "text_cnn.json"),
+        "text_gru": pnlp.read_json(root / "text_gru.json"),
+    }
+)
 
 
 SpeToken = ADict(
@@ -47,3 +49,8 @@ SpeToken = ADict(
         "unused": "[unused{}]",
     }
 )
+
+
+def check_name(identity: str, name: str):
+    if identity == "pretrained_model":
+        return name in ["fasttext", "bert"]

@@ -45,29 +45,17 @@ def text_cnn(config: Dict[str, Any], embed):
     Dropout has been added for output concat
     """
     config = ADict(config)
-    embed = embed[:, :, :, None]
-    conv2 = tfk.layers.Conv2D(
-        config.filters, kernel_size=2, strides=(1, config.embed_size), padding="valid"
-    )(embed)
-    pool2 = tfk.layers.MaxPool2D(
-        pool_size=(config.max_seq_len - 2 + 1, 1), strides=(1, 1), padding="valid"
-    )(conv2)
-
-    conv3 = tfk.layers.Conv2D(
-        config.filters, kernel_size=3, strides=(1, config.embed_size), padding="valid"
-    )(embed)
-    pool3 = tfk.layers.MaxPool2D(
-        pool_size=(config.max_seq_len - 3 + 1, 1), strides=(1, 1), padding="valid"
-    )(conv3)
-
-    conv4 = tfk.layers.Conv2D(
-        config.filters, kernel_size=4, strides=(1, config.embed_size), padding="valid"
-    )(embed)
-    pool4 = tfk.layers.MaxPool2D(
-        pool_size=(config.max_seq_len - 4 + 1, 1), strides=(1, 1), padding="valid"
-    )(conv4)
-
-    concat = tfk.layers.Concatenate(axis=-1)([pool2, pool3, pool4])
+    embed = tf.expand_dims(embed, axis=-1)
+    convs = []
+    for size in map(int, config.filter_sizes.split(",")):
+        conv = tfk.layers.Conv2D(
+            config.num_filters, kernel_size=size, strides=(1, config.embed_size), padding="valid"
+        )(embed)
+        pool = tfk.layers.MaxPool2D(
+            pool_size=(config.max_seq_len - size + 1, 1), strides=(1, 1), padding="valid"
+        )(conv)
+        convs.append(pool)
+    concat = tfk.layers.Concatenate(axis=-1)(convs)
     z = tf.squeeze(concat, [1, 2])
     z = tfk.layers.Dropout(config.dropout)(z)
     return z

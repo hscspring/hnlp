@@ -1,0 +1,10 @@
+{
+    "model": {
+        "hidden_size": 256
+    },
+    "train": {
+        "epochs": 10
+    },
+    "save": {
+    }
+}

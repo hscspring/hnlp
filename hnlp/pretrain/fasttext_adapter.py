@@ -5,7 +5,7 @@ from gensim.models import fasttext, FastText
 from addict import Dict as ADict
 
 from hnlp.register import Register
-from hnlp.config import default_model_home, default_fasttext_word2vec_config
+from hnlp.config import model_home, model_config
 
 
 @Register.register
@@ -34,9 +34,9 @@ class FasttextPretrainedModel:
     def __post_init__(self):
         self.name = self.name or "word2vec"
         model_name = "/".join(("fasttext", self.name))
-        model_path = default_model_home / model_name
+        model_path = model_home / model_name
         self.model_path = self.path or str(model_path)
-        self.config = self.config or default_fasttext_word2vec_config
+        self.config = self.config or model_config.fasttext_word2vec
         self.config = ADict(self.config)
         self.training_type = self.training_type or "scratch"
         if self.training_type == "predict":
