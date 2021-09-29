@@ -45,19 +45,31 @@ def text_cnn(config: Dict[str, Any], embed):
     Dropout has been added for output concat
     """
     config = ADict(config)
-    embed = tf.expand_dims(embed, axis=-1)
+    embed = tf.expand_dims(embed, axis=-1, name="expand")
     convs = []
     for size in map(int, config.filter_sizes.split(",")):
         conv = tfk.layers.Conv2D(
-            config.num_filters, kernel_size=size, strides=(1, config.embed_size), padding="valid"
+            filters=config.num_filters,
+            kernel_size=(size, config.embed_size),
+            strides=(1, 1),
+            padding="valid",
+            data_format="channels_last",
+            activation="relu",
+            kernel_initializer="glorot_normal",
+            bias_initializer=tfk.initializers.constant(config.initializer_range),
+            name="conv_{:d}".format(size)
         )(embed)
         pool = tfk.layers.MaxPool2D(
-            pool_size=(config.max_seq_len - size + 1, 1), strides=(1, 1), padding="valid"
+            pool_size=(config.max_seq_len - size + 1, 1),
+            strides=(1, 1),
+            padding="valid",
+            data_format="channels_last",
+            name="max_pooling_{:d}".format(size)
         )(conv)
         convs.append(pool)
-    concat = tfk.layers.Concatenate(axis=-1)(convs)
-    z = tf.squeeze(concat, [1, 2])
-    z = tfk.layers.Dropout(config.dropout)(z)
+    concat = tfk.layers.Concatenate(axis=-1, name="concatenate")(convs)
+    z = tf.squeeze(concat, [1, 2], name="squeeze")
+    z = tfk.layers.Dropout(config.dropout, name="dropout")(z)
     return z
 
 
@@ -72,6 +84,6 @@ def text_gru(config: Dict[str, Any], embed, mask):
 
     """
     config = ADict(config)
-    z = tfk.layers.GRU(config.hidden_size, return_sequences=True)(embed, mask=mask)
-    z = tfk.layers.GRU(config.hidden_size)(z)
+    z = tfk.layers.GRU(config.hidden_size, return_sequences=True, name="gru1")(embed, mask=mask)
+    z = tfk.layers.GRU(config.hidden_size, name="gru2")(z)
     return z
