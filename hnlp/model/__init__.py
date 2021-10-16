@@ -1,5 +1,6 @@
 from hnlp.config import ARCH
+
 if ARCH == "tf":
-    from hnlp.model.model_tf import pretrained, text_cnn, text_gru
+    from hnlp.model.model_tf import pretrained, cnn, gru
 else:
-    raise NotImplemented
+    raise NotImplementedError

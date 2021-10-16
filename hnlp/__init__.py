@@ -3,7 +3,8 @@ from hnlp.register import Register
 
 
 from hnlp.dataset import Corpus, Preprocessor, Tokenizer, MapStyleDataset, DataManagerPt
-from hnlp.model import pretrained, text_cnn, text_gru
+from hnlp.layer import Embeddings
+from hnlp.model import pretrained, cnn, gru
 from hnlp.loss import rdrop_loss
 
 

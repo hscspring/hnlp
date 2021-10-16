@@ -31,8 +31,8 @@ root = Path(os.path.abspath(__file__)).parent
 model_config = ADict(
     {
         "fasttext_word2vec": pnlp.read_json(root / "fasttext_word2vec.json"),
-        "text_cnn": pnlp.read_json(root / "text_cnn.json"),
-        "text_gru": pnlp.read_json(root / "text_gru.json"),
+        "cnn": pnlp.read_json(root / "cnn.json"),
+        "gru": pnlp.read_json(root / "gru.json"),
     }
 )
 
