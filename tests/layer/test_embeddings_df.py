@@ -6,6 +6,7 @@ from pnlp import MagicDict
 def test_work():
     x, y = gen_input(3, 60, 1, 2)
     config = MagicDict()
+    config.max_seq_len = 60
     embed = Embeddings(config)
     out = embed(x)
-    assert out.shape.as_list() == [3, 60, 300]
+    assert out.shape.as_list() == [3, 60, 256]

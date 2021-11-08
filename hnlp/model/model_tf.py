@@ -32,7 +32,7 @@ def pretrained(
         raise NotImplementedError
 
 
-def cnn(config: Dict[str, Any], embed):
+def cnn(config: Dict[str, Any], embed: tf.Tensor):
     """
 
     Parameters
@@ -56,7 +56,7 @@ def cnn(config: Dict[str, Any], embed):
             data_format="channels_last",
             activation="relu",
             kernel_initializer="glorot_normal",
-            bias_initializer=tfk.initializers.constant(config.initializer_range or 0.1)
+            bias_initializer=tfk.initializers.constant(0)
         )(embed)
         pool = tfk.layers.MaxPool2D(
             pool_size=(config.max_seq_len - size + 1, 1),
