@@ -50,16 +50,19 @@ class InteractiveSelfAttention(tfk.layers.Layer):
         # self.U = tfk.layers.Desne(1)
         if self.attention_type == "general":
             self.W = self.add_weight(
+                name="W",
                 shape=[size, size],
                 initializer=tfk.initializers.TruncatedNormal(
                     stddev=self.initializer_range),
             )
         self.U = self.add_weight(
+            name="U",
             shape=[size],
             initializer=tfk.initializers.TruncatedNormal(
                 stddev=self.initializer_range),
         )
         self.b = self.add_weight(
+            name="b",
             shape=[size],
             initializer=tfk.initializers.constant(0),
         )
