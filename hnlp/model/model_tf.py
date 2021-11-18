@@ -6,9 +6,11 @@ import tensorflow.keras as tfk
 from hnlp.layer.pretrained_tf import PretrainedBert, PretrainedWord2vec
 
 
-def pretrained(
-    config: Dict[str, Any], inputs, mask=None, token_type_ids=None, training=False
-):
+def pretrained(config: Dict[str, Any],
+               inputs,
+               mask=None,
+               token_type_ids=None,
+               training=False):
     """
 
     Parameters
@@ -19,14 +21,12 @@ def pretrained(
     """
     config = ADict(config)
     if config.use_pretrained_bert:
-        layer = PretrainedBert(config.pretrained_bert_path, config.fix_pretrained)(
-            inputs, mask, training
-        )
+        layer = PretrainedBert(config.pretrained_bert_path,
+                               config.fix_pretrained)(inputs, mask, training)
         return layer
     elif config.use_pretrained_word2vec:
-        embed = PretrainedWord2vec(
-            config.pretrained_word2vec_path, config.fix_pretrained
-        )(inputs)
+        embed = PretrainedWord2vec(config.pretrained_word2vec_path,
+                                   config.fix_pretrained)(inputs)
         return embed
     else:
         raise NotImplementedError
@@ -54,16 +54,24 @@ def cnn(config: Dict[str, Any], embed: tf.Tensor):
             strides=(1, 1),
             padding="valid",
             data_format="channels_last",
-            activation="relu",
+            activation="swish",
             kernel_initializer="glorot_normal",
-            bias_initializer=tfk.initializers.constant(0)
+            bias_initializer=tfk.initializers.constant(0),
         )(embed)
-        pool = tfk.layers.MaxPool2D(
-            pool_size=(config.max_seq_len - size + 1, 1),
-            strides=(1, 1),
-            padding="valid",
-            data_format="channels_last"
-        )(conv)
+        if config.pooling_type == "average":
+            pool = tfk.layers.AveragePooling2D(
+                pool_size=(config.max_seq_len - size + 1, 1),
+                strides=(1, 1),
+                padding="valid",
+                data_format="channels_last",
+            )(conv)
+        else:
+            pool = tfk.layers.MaxPool2D(
+                pool_size=(config.max_seq_len - size + 1, 1),
+                strides=(1, 1),
+                padding="valid",
+                data_format="channels_last",
+            )(conv)
         convs.append(pool)
     concat = tfk.layers.Concatenate(axis=-1)(convs)
     z = tf.squeeze(concat, [1, 2])
@@ -82,6 +90,7 @@ def gru(config: Dict[str, Any], embed, mask):
 
     """
     config = ADict(config)
-    z = tfk.layers.GRU(config.hidden_size, return_sequences=True)(embed, mask=mask)
+    z = tfk.layers.GRU(config.hidden_size, return_sequences=True)(embed,
+                                                                  mask=mask)
     z = tfk.layers.GRU(config.hidden_size)(z)
     return z

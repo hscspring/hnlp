@@ -3,6 +3,7 @@
         "embed_size": 300,
         "filter_sizes": "2,3,4",
         "num_filters": 128,
+        "pooling_type": "max",
         "dropout": 0.5,
         "max_seq_len": 512
     },
