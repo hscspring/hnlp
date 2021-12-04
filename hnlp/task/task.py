@@ -10,7 +10,7 @@ from hnlp.task.trainer import Trainer
 
 
 @dataclass
-class Model(Node):
+class Task(Node):
 
     """
     When is_training is True, model_path is actually the pretrained_model_path;
