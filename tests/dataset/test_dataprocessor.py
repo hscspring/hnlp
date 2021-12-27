@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 
 from hnlp.dataset.corpus import Corpus
 from hnlp.dataset.preprocessor import Preprocessor
@@ -155,7 +154,6 @@ def test_functional_pipeline_with_label():
 def test_custom_node_without_label():
     data_path = "tests/dataset/corpus/unlabeled/file1.txt"
 
-    @dataclass
     class CustomPreprocessor(Node):
         def __post_init__(self):
             super().__init__()
@@ -185,7 +183,6 @@ def test_custom_node_without_label():
 def test_custom_node_with_label():
     data_path = "tests/dataset/corpus/labeled/file1.json"
 
-    @dataclass
     class CustomPreprocessor(Node):
         def __post_init__(self):
             super().__init__()

@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-from typing import List, Tuple, Union
+from typing import List
 
 import torch
 from torch.utils.data.dataloader import DataLoader
@@ -7,21 +6,19 @@ from torch.utils.data.dataloader import DataLoader
 from hnlp.node import Node
 
 
-@dataclass
 class PretrainedProcessor(Node):
 
     """
-    
+
     Note
     -----
     If your input is already a tensor, then do not need this processor.
     Because transformers will do.
     """
 
-    name: str = "pretrained"
-
-    def __post_init__(self):
+    def __init_(self, name: str = "pretrained"):
         super().__init__()
+        self.name = name
         self.identity = "processor"
         self.batch_input = True
         if self.name == "pretrained":

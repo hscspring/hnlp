@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 import torch
 from hnlp.converter.converter_pt import convert_model_input
 
 
 def test_convert_model_input():
-    @dataclass
     class A:
         @convert_model_input
         def __call__(self, inputs):
@@ -18,7 +16,6 @@ def test_convert_model_input():
 
 
 def test_convert_model_input_with_parameter():
-    @dataclass
     class A:
         @convert_model_input(target="pretrained")
         def __call__(self, inputs):
@@ -32,7 +29,6 @@ def test_convert_model_input_with_parameter():
 
 
 def test_convert_model_input_with_not_implemented():
-    @dataclass
     class A:
         @convert_model_input(target="other")
         def __call__(self, inputs):
@@ -46,7 +42,6 @@ def test_convert_model_input_with_not_implemented():
 
 
 def test_convert_model_input_with_one_label():
-    @dataclass
     class A:
         @convert_model_input
         def fit(self, inputs, labels):
@@ -62,7 +57,6 @@ def test_convert_model_input_with_one_label():
 
 
 def test_convert_model_input_with_one_label_str():
-    @dataclass
     class A:
         @convert_model_input
         def fit(self, inputs, labels):
@@ -78,7 +72,6 @@ def test_convert_model_input_with_one_label_str():
 
 
 def test_convert_model_input_with_none():
-    @dataclass
     class A:
         @convert_model_input
         def fit(self, inputs, labels):

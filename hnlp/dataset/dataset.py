@@ -1,22 +1,26 @@
-from dataclasses import dataclass
 from typing import List, Tuple, Any
 
 import numpy as np
 from hnlp.config import SpeToken
 
 
-@dataclass
 class MapStyleDataset:
 
-    data: List[List[str or int]] or List[Tuple[List[str or int], Any]]
-    min_seq_len: int
-    max_seq_len: int
-    dynamic_length: bool = True
-    pad_token: str = SpeToken.pad
-    pad_token_id: int = 0
-
-    def __post_init__(self):
+    def __init__(
+        self,
+        data: List[List[str or int]] or List[Tuple[List[str or int], Any]],
+        min_seq_len: int,
+        max_seq_len: int,
+        dynamic_length: bool = True,
+        pad_token: str = SpeToken.pad,
+        pad_token_id: int = 0,
+    ):
         self.data = self.filter_sequences(self.data)
+        self.min_seq_len = min_seq_len
+        self.max_seq_len = max_seq_len
+        self.dynamic_length = dynamic_length
+        self.pad_token = pad_token
+        self.pad_token_id = pad_token_id
         self.length = len(self.data)
 
     def __getitem__(self, index: int):
@@ -26,11 +30,15 @@ class MapStyleDataset:
         return self.length
 
     def get_batch(self, batch_size: int):
-        indexes = np.random.choice(self.length, batch_size, replace=False, p=None)
+        indexes = np.random.choice(self.length,
+                                   batch_size,
+                                   replace=False,
+                                   p=None)
         chosen = [self.data[i] for i in indexes]
         return self.batch_sequences(chosen)
 
     def filter_sequences(self, data):
+
         def x_len(ele):
             if type(ele) == tuple:
                 return len(ele[0])
@@ -54,6 +62,7 @@ class MapStyleDataset:
             return padded_tokens
 
     def padding_tokens(self, tokens: list):
+
         def get_pad(ele):
             if type(ele[0]) == int:
                 return self.pad_token_id

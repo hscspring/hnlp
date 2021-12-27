@@ -8,7 +8,6 @@ Note: We do not add model or training to our processing chain.
 """
 
 import collections
-from dataclasses import dataclass
 from typing import List, Callable, Union, Dict, Tuple, Any
 from numbers import Number
 import numpy as np
@@ -19,7 +18,6 @@ from hnlp.config import SpeToken
 from hnlp.register import Register
 
 
-@dataclass
 class Tokenizer(Node):
     """
     Tokenizer middleware
@@ -32,18 +30,25 @@ class Tokenizer(Node):
     segmentor: how to segment the input text
     """
 
-    name: str
-    vocab_file: str = ""
-    max_seq_len: int = 512
-    segmentor: callable = lambda x: list(x)
-    return_numpy: bool = True
+    def __init__(
+            self,
+            name: str,
+            vocab_file: str = "",
+            max_seq_len: int = 512,
+            segmentor: callable = lambda x: list(x),
+            return_numpy: bool = True,
+    ):
 
-    def __post_init__(self):
         super().__init__()
+        self.name = name
+        self.vocab_file = vocab_file
+        self.max_seq_len = max_seq_len
+        self.segmentor = segmentor
+        self.return_numpy = return_numpy
         self.identity = "tokenizer"
-        self.node = super().get_cls(self.identity, self.name)(
-            self.vocab_file, self.max_seq_len, self.segmentor
-        )
+        self.node = super().get_cls(self.identity,
+                                    self.name)(self.vocab_file,
+                                               self.max_seq_len, self.segmentor)
 
     # over ride Node
     def call(self, inp: Union[str, List[str], List[Tuple[str, Any]]]):
@@ -56,14 +61,13 @@ class Tokenizer(Node):
 
 
 @Register.register
-@dataclass
 class BasicTokenizer:
 
-    vocab_file: str
-    max_seq_len: int
-    segmentor: Callable
+    def __init__(self, vocab_file: str, max_seq_len: int, segmentor: Callable):
 
-    def __post_init__(self):
+        self.vocab_file = vocab_file
+        self.max_seq_len = max_seq_len
+        self.segmentor = segmentor
         vocab = pnlp.read_lines(self.vocab_file)
         unused = [SpeToken.unused.format(i) for i in range(1, 100)]
         others = list(SpeToken.values())[1:-1]
@@ -91,9 +95,8 @@ class BasicTokenizer:
         return res
 
     def check_vocab_contains_special(self, vocab: List[str]) -> bool:
-        return all(
-            (SpeToken.pad in vocab, SpeToken.unk in vocab, SpeToken.mask in vocab)
-        )
+        return all((SpeToken.pad in vocab, SpeToken.unk in vocab, SpeToken.mask
+                    in vocab))
 
     def tokenize(self, text: str) -> List[str]:
         res = []
@@ -129,7 +132,7 @@ class BasicTokenizer:
                 pad = [pad_id] * (self.max_seq_len - length)
                 sen_ids.extend(pad)
             else:
-                sen_ids = sen_ids[: self.max_seq_len]
+                sen_ids = sen_ids[:self.max_seq_len]
             res.append(sen_ids)
             # arr[i] = sen_ids
         return res
@@ -170,9 +173,8 @@ class BasicTokenizer:
     def __call__(self, inp: Union[str, List[str]]):
         return self.encode(inp)
 
-    def call(
-        self, inp: Union[str, List[str], List[Tuple[str, Any]]]
-    ) -> np.array:
+    def call(self, inp: Union[str, List[str], List[Tuple[str,
+                                                         Any]]]) -> np.array:
         if isinstance(inp, list) and isinstance(inp[0], tuple):
             res = []
             for i in range(len(inp[0])):
@@ -196,8 +198,8 @@ class BasicTokenizer:
 
 
 @Register.register
-@dataclass
 class BertTokenizer(BasicTokenizer):
+
     def _encode(self, text: str) -> List[int]:
         cls_id = self.word2id.get(SpeToken.cls)
         sep_id = self.word2id.get(SpeToken.sep)

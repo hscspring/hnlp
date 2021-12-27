@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from collections.abc import Iterable
 from typing import Dict
 from gensim.models import fasttext, FastText
@@ -9,7 +8,6 @@ from hnlp.config import model_home, model_config
 
 
 @Register.register
-@dataclass
 class FasttextPretrainedModel:
 
     """
@@ -26,12 +24,12 @@ class FasttextPretrainedModel:
     - https://radimrehurek.com/gensim/auto_examples/tutorials/run_fasttext.html
     """
 
-    name: str
-    path: str
-    config: Dict
-    training_type: str
-
-    def __post_init__(self):
+    def __init__(self,
+                 name: str,
+                 path: str,
+                 config: Dict,
+                 training_type: str):
+        self.path = path
         self.name = self.name or "word2vec"
         model_name = "/".join(("fasttext", self.name))
         model_path = model_home / model_name
@@ -59,4 +57,5 @@ class FasttextPretrainedModel:
         self.model.train(
             corpus_iterable=iter_corpus, total_examples=len(iter_corpus), **self.config.train
         )
-        fasttext.save_facebook_model(self.model, self.model_path, **self.config.save)
+        fasttext.save_facebook_model(
+            self.model, self.model_path, **self.config.save)

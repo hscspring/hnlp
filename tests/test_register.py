@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from hnlp.register import Register
 
 
 def test_register():
     @Register.register
-    @dataclass
     class MyClassSomething:
         pass
 

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import os
 from typing import Iterable
 
@@ -9,16 +8,19 @@ from hnlp.utils import check_file
 from hnlp.utils import convert_model_input, ModelInputType, device
 
 
-@dataclass
 class BertPretrainedModel:
 
-    name: str
-    model_path: str
-    is_training: bool
-    output_hidden_states: bool
-    output_attentions: bool
-
-    def __post_init__(self):
+    def __init__(self,
+                 name: str,
+                 model_path: str,
+                 is_training: bool,
+                 output_hidden_states: bool,
+                 output_attentions: bool):
+        self.name = name
+        self.model_path = model_path
+        self.is_training = is_training
+        self.output_hidden_states = output_hidden_states
+        self.output_attentions = output_attentions
         ConfigClass = getattr(transformers, self.name.title() + "Config")
         ModelClass = getattr(transformers, self.name.title() + "Model")
         config_path = os.path.join(self.model_path, "config.json")

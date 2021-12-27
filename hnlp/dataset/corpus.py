@@ -5,7 +5,6 @@ Corpus Module
 The core module of Corpus. Support LabeledCorpus and UnLabeledCorpus.
 """
 
-from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple
 from addict import Dict as ADict
 from pyarrow import json as pjson
@@ -14,14 +13,11 @@ import pandas as pd
 from sklearn.utils import shuffle
 from pnlp import Reader
 
-
 from hnlp.node import Node
 from hnlp.register import Register
 
 
-@dataclass
 class Corpus(Node):
-
     """
     Corpus middleware.
 
@@ -43,18 +39,25 @@ class Corpus(Node):
     Your string label will be treated as an input text. Unless you've converted them to Number by using the label_map.
     """
 
-    name: str
-    pattern: str = "*.*"
-    keys: Optional[Tuple[str, str]] = field(default_factory=lambda: ("text", "label"))
-    shuffle: bool = True
-    label_map: Dict[str, int] = field(default_factory=lambda: ADict())
+    def __init__(
+            self,
+            name: str,
+            pattern: str = "*.*",
+            keys: Optional[Tuple[str, str]] = ("text", "label"),
+            shuffle: bool = True,
+            label_map: Dict[str, int] = ADict(),
+    ):
 
-    def __post_init__(self):
         super().__init__()
+        self.name = name
+        self.pattern = pattern
+        self.keys = keys
+        self.shuffle = shuffle
+        self.label_map = label_map
         self.identity = "corpus"
-        self.node = super().get_cls(self.identity, self.name)(
-            self.pattern, self.keys, self.shuffle, self.label_map
-        )
+        self.node = super().get_cls(self.identity,
+                                    self.name)(self.pattern, self.keys,
+                                               self.shuffle, self.label_map)
 
     def __len__(self):
         return len(self.node)
@@ -68,9 +71,7 @@ class Corpus(Node):
 
 
 @Register.register
-@dataclass
 class LabeledCorpus:
-
     """
     LabeledCorpus module
 
@@ -81,13 +82,17 @@ class LabeledCorpus:
     path: json corpus file.
     """
 
-    pattern: str
-    keys: Optional[Tuple[str, str]]
-    shuffle: bool
-    label_map: Dict[str, int]
-
-    def __post_init__(self):
+    def __init__(
+        self,
+        pattern: str,
+        keys: Optional[Tuple[str, str]],
+        shuffle: bool,
+        label_map: Dict[str, int],
+    ):
+        self.pattern = pattern
         self.keys = list(self.keys)
+        self.shuffle = shuffle
+        self.label_map = label_map
         self.data = pd.DataFrame()
         self.reader = Reader()
 
@@ -128,7 +133,6 @@ class LabeledCorpus:
 
 
 @Register.register
-@dataclass
 class UnlabeledCorpus:
     """
     UnlabeldCorpus module
@@ -139,12 +143,18 @@ class UnlabeledCorpus:
     label_map: Label map for input, should ignore
     """
 
-    pattern: str
-    keys: Optional[Tuple[str, str]]
-    shuffle: bool
-    label_map: dict
+    def __init__(
+        self,
+        pattern: str,
+        keys: Optional[Tuple[str, str]],
+        shuffle: bool,
+        label_map: dict,
+    ):
 
-    def __post_init__(self):
+        self.pattern = pattern
+        self.keys = keys
+        self.shuffle = shuffle
+        self.label_map = label_map
         self.data = []
         self.reader = Reader(self.pattern)
         self._len = 0

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import List, Tuple, Any
 
 from torch.utils.data import SequentialSampler, RandomSampler
@@ -7,8 +6,6 @@ from torch.utils.data import BatchSampler, DataLoader
 from hnlp.node import Node
 from hnlp.register import Register
 from hnlp.dataset.datamanager import MapStyleDataset
-
-
 """
 There are many different usages in the pytorch doc (https://pytorch.org/docs/stable/data.htm)
 
@@ -80,18 +77,24 @@ Besides, `Dataset`, `Pipeline`, `Fields` are convenient in some occasion.
 """
 
 
-@dataclass
 class DataManagerPt(Node):
 
-    name: str = "random"
-    batch_size: int = 1
-    min_seq_len: int = 1
-    max_seq_len: int = 512
-    dynamic_length: bool = False
-    drop_last: bool = False
-
-    def __post_init__(self):
+    def __init__(
+        self,
+        name: str = "random",
+        batch_size: int = 1,
+        min_seq_len: int = 1,
+        max_seq_len: int = 512,
+        dynamic_length: bool = False,
+        drop_last: bool = False,
+    ):
         super().__init__()
+        self.name = name
+        self.batch_size = batch_size
+        self.min_seq_len = min_seq_len
+        self.max_seq_len = max_seq_len
+        self.dynamic_length = dynamic_length
+        self.drop_last = drop_last
         self.identity = "data_manager_pt"
         self.node = super().get_cls(self.identity, self.name)(
             self.batch_size,
@@ -105,23 +108,26 @@ class DataManagerPt(Node):
         return self.node(inp)
 
 
-@dataclass
 class BatchLoader:
 
-    batch_size: int
-    min_seq_len: int
-    max_seq_len: int
-    dynamic_length: bool
-    drop_last: bool
-
-    def __call__(
+    def __init__(
         self,
-        inputs: List[List[str or int]] or List[Tuple[List[str or int], Any]],
-        *args
+        batch_size: int,
+        min_seq_len: int,
+        max_seq_len: int,
+        dynamic_length: bool,
+        drop_last: bool,
     ):
-        self.dataset = MapStyleDataset(
-            inputs, self.min_seq_len, self.max_seq_len, self.dynamic_length
-        )
+        self.batch_size = batch_size
+        self.min_seq_len = min_seq_len
+        self.max_seq_len = max_seq_len
+        self.dynamic_length = dynamic_length
+        self.drop_last = drop_last
+
+    def __call__(self, inputs: List[List[str or int]] or
+                 List[Tuple[List[str or int], Any]], *args):
+        self.dataset = MapStyleDataset(inputs, self.min_seq_len,
+                                       self.max_seq_len, self.dynamic_length)
         batch_sampler = BatchSampler(
             self.sampler(self.dataset),
             batch_size=self.batch_size,
@@ -136,14 +142,16 @@ class BatchLoader:
 
 
 @Register.register
-@dataclass
 class RandomDataManagerPt(BatchLoader):
-    def __post_init__(self):
+
+    def __init__(self):
+        super().__init__()
         self.sampler = RandomSampler
 
 
 @Register.register
-@dataclass
 class SequenceDataManagerPt(BatchLoader):
-    def __post_init__(self):
+
+    def __init__(self):
+        super().__init__()
         self.sampler = SequentialSampler

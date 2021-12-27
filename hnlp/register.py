@@ -1,8 +1,6 @@
-from dataclasses import dataclass
 from hnlp.utils import build_class_name
 
 
-@dataclass
 class Register:
 
     _dict = {}

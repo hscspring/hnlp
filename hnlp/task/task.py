@@ -1,6 +1,4 @@
-from dataclasses import dataclass
 from argparse import Namespace
-
 import time
 
 from hnlp.node import Node
@@ -9,20 +7,22 @@ from hnlp.config import device, ModelInputType, logger
 from hnlp.task.trainer import Trainer
 
 
-@dataclass
 class Task(Node):
-
     """
     When is_training is True, model_path is actually the pretrained_model_path;
     When is_training is False, we are doing inference, so model_path is the trained_model_path.
     """
-    name: str
-    is_training: bool = False
-    args: Namespace = Namespace()
 
-    def __post_init__(self):
+    def __init__(self,
+                 name: str,
+                 is_training: bool = False,
+                 args: Namespace = Namespace()):
+        self.name = name
+        self.is_training = is_training
+        self.args = args
         self.identity = "task"
-        self.node = super().get_cls(self.identity, self.name)(self.is_training).to(device)
+        self.node = (super().get_cls(self.identity,
+                                     self.name)(self.is_training).to(device))
         if self.is_training:
             self.trainer = Trainer(self.args, self.node)
         # if self.is_training:
@@ -41,11 +41,14 @@ class Task(Node):
             secs = int(time.time() - start_time)
             mins = secs / 60
             secs = secs % 60
-            logger.info('Epoch: %d' % (epoch + 1),
-                        " | time in %d minutes, %d seconds" % (mins, secs))
-            logger.info(f'\t\
+            logger.info(
+                "Epoch: %d" % (epoch + 1),
+                " | time in %d minutes, %d seconds" % (mins, secs),
+            )
+            logger.info(f"\t\
                 Loss: {sum(train_loss)/len(train_dataloader.dataset): .4f}(train)\t\
-                Acc: {sum(train_acc)/len(train_dataloader.dataset) * 100: .1f} % (train)')
+                Acc: {sum(train_acc)/len(train_dataloader.dataset) * 100: .1f} % (train)"
+                        )
 
     def train_func(self, dataloader):
         history = []

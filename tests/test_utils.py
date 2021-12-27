@@ -1,5 +1,4 @@
 import os
-from dataclasses import dataclass
 from hnlp.utils import *
 
 
@@ -54,7 +53,6 @@ def test_build_config_from_json():
 
 
 def test_build_pretrained_config_from_json():
-    @dataclass
     class Config:
         name: str
         location: str

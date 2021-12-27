@@ -1,16 +1,13 @@
-from dataclasses import dataclass
 from hnlp.node import Node, N
 
 
 
 def test_node():
-    @dataclass
     class A(Node):
         name: str = "A"
         def __post_init__(self):
             super().__init__()
             self.node = lambda x: "/".join([x, self.name])
-    @dataclass
     class B(Node):
         name: str = "B"
         def __post_init__(self):
