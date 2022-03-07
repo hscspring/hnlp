@@ -90,7 +90,7 @@ class LabeledCorpus:
         label_map: Dict[str, int],
     ):
         self.pattern = pattern
-        self.keys = list(self.keys)
+        self.keys = list(keys)
         self.shuffle = shuffle
         self.label_map = label_map
         self.data = pd.DataFrame()

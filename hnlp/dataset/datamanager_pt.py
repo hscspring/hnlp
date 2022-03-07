@@ -5,7 +5,7 @@ from torch.utils.data import BatchSampler, DataLoader
 
 from hnlp.node import Node
 from hnlp.register import Register
-from hnlp.dataset.datamanager import MapStyleDataset
+from hnlp.dataset import MapStyleDataset
 """
 There are many different usages in the pytorch doc (https://pytorch.org/docs/stable/data.htm)
 

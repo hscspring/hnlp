@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from addict import Dict as ADict
 
+import tensorflow as tf
+import tensorflow.keras as tfk
 from hnlp.layer.pretrained_tf import PretrainedBert, PretrainedWord2vec
 
 

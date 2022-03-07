@@ -1,19 +1,12 @@
 import os
 import logging
 from pathlib import Path
-from addict import Dict as ADict
 from typing import TypeVar, List, Dict
 import pnlp
-import numpy as np
-import torch
-from torch import Tensor
+from pnlp import MagicDict
 
 
 ARCH = os.environ.get("ARCH") or "tf"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-ModelInputType = TypeVar("ModelInputType", np.array, Tensor, Dict[str, Tensor])
-ModelLabelType = TypeVar("ModelLabelType", List[str], List[int], Tensor)
 
 
 logger = logging.getLogger("hnlp")
@@ -28,7 +21,7 @@ pnlp.check_dir(data_home)
 
 root = Path(os.path.abspath(__file__)).parent
 
-model_config = ADict(
+model_config = MagicDict(
     {
         "fasttext_word2vec": pnlp.read_json(root / "fasttext_word2vec.json"),
         "cnn": pnlp.read_json(root / "cnn.json"),
@@ -37,7 +30,7 @@ model_config = ADict(
 )
 
 
-SpeToken = ADict(
+SpeToken = MagicDict(
     {
         "pad": "[PAD]",
         "unk": "[UNK]",

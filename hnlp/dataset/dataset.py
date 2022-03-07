@@ -1,21 +1,28 @@
-from typing import List, Tuple, Any
+from typing import List, Tuple, Union, TypeVar
 
 import numpy as np
 from hnlp.config import SpeToken
+
+
+DatasetType = TypeVar(
+    "DatasetType",
+    List[List[Union[str, int]]],
+    List[Tuple[List[Union[str, int]], Union[str, int, float]]]
+)
 
 
 class MapStyleDataset:
 
     def __init__(
         self,
-        data: List[List[str or int]] or List[Tuple[List[str or int], Any]],
-        min_seq_len: int,
-        max_seq_len: int,
+        data: DatasetType,
+        min_seq_len: int = 0,
+        max_seq_len: int = 512,
         dynamic_length: bool = True,
         pad_token: str = SpeToken.pad,
-        pad_token_id: int = 0,
+        pad_token_id: int = 0
     ):
-        self.data = self.filter_sequences(self.data)
+        self.data = self.filter_sequences(data)
         self.min_seq_len = min_seq_len
         self.max_seq_len = max_seq_len
         self.dynamic_length = dynamic_length
@@ -37,7 +44,7 @@ class MapStyleDataset:
         chosen = [self.data[i] for i in indexes]
         return self.batch_sequences(chosen)
 
-    def filter_sequences(self, data):
+    def filter_sequences(self, data: DatasetType):
 
         def x_len(ele):
             if type(ele) == tuple:
@@ -48,20 +55,20 @@ class MapStyleDataset:
         result = list(filter(lambda x: self.min_seq_len <= x_len(x), data))
         return result
 
-    def batch_sequences(self, batch):
+    def batch_sequences(self, batch: DatasetType):
         if type(batch[0]) == tuple:
-            tokens = [ele[0] for ele in batch]
-            padded_tokens = self.padding_tokens(tokens)
+            batch_tokens = [ele[0] for ele in batch]
+            padded_tokens = self.padding_tokens(batch_tokens)
             if len(batch[0]) > 1:
                 labels = [ele[1] for ele in batch]
                 return (padded_tokens, labels)
             return padded_tokens
         else:
-            tokens = batch
-            padded_tokens = self.padding_tokens(tokens)
+            batch_tokens = batch
+            padded_tokens = self.padding_tokens(batch_tokens)
             return padded_tokens
 
-    def padding_tokens(self, tokens: list):
+    def padding_tokens(self, batch_tokens: List[List[Union[str, int]]]):
 
         def get_pad(ele):
             if type(ele[0]) == int:
@@ -69,13 +76,13 @@ class MapStyleDataset:
             else:
                 return self.pad_token
 
-        max_len = max([len(item) for item in tokens])
+        max_len = max([len(item) for item in batch_tokens])
         if self.dynamic_length:
             max_len = min(max_len, self.max_seq_len)
         else:
             max_len = self.max_seq_len
         padded_tokens = []
-        for ele in tokens:
+        for ele in batch_tokens:
             if len(ele) > max_len:
                 ele = ele[:max_len]
             else:

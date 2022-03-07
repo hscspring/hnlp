@@ -19,8 +19,8 @@ pipe = (
     Task(optimizer, loss_fn, metric)
 )
 
-pipe.train()
-pipe.test()
+pipe.train("/path/to/train_file")
+pipe.test("/path/to/test_file")
 ```
 
 

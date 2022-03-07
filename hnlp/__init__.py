@@ -5,7 +5,7 @@ from hnlp.register import Register
 from hnlp.dataset import Corpus, Preprocessor, Tokenizer, MapStyleDataset, DataManager
 from hnlp.layer import Embeddings, InteractiveSelfAttention
 from hnlp.module import pretrained, cnn, gru
-from hnlp.loss import rdrop_loss
+from hnlp.trainer.loss_tf import rdrop_loss
 
 
 from hnlp.sampler import gen_input, gen_hidden

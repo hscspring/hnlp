@@ -1,9 +1,13 @@
 from functools import wraps, partial
-from typing import Tuple
-
-from torch import Tensor
+from typing import TypeVar, List, Dict, Tuple
+import numpy as np
 import torch
-from hnlp.config import ModelInputType, device, ModelLabelType
+from torch import Tensor
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+ModelInputType = TypeVar("ModelInputType", np.array, Tensor, Dict[str, Tensor])
+ModelLabelType = TypeVar("ModelLabelType", List[str], List[int], Tensor)
 
 
 def convert_input(inputs: ModelInputType):
@@ -15,7 +19,8 @@ def convert_input(inputs: ModelInputType):
     # Tensors in Tuple should be sorted as follows:
     # input_ids, attention_mask, token_type_ids, position_ids
     elif isinstance(inputs, Tuple):
-        keys = ["input_ids", "attention_mask", "token_type_ids", "position_ids"]
+        keys = ["input_ids", "attention_mask",
+                "token_type_ids", "position_ids"]
         inputs = [v.to(device) for v in inputs]
         inp = dict(zip(keys, inputs))
     else:
