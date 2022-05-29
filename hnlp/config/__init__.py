@@ -1,7 +1,6 @@
 import os
 import logging
 from pathlib import Path
-from typing import TypeVar, List, Dict
 import pnlp
 from pnlp import MagicDict
 
@@ -21,11 +20,16 @@ pnlp.check_dir(data_home)
 
 root = Path(os.path.abspath(__file__)).parent
 
-model_config = MagicDict(
+model_root = root / "model"
+vocab_root = root / "vocab"
+
+
+default_config = MagicDict(
     {
-        "fasttext_word2vec": pnlp.read_json(root / "fasttext_word2vec.json"),
-        "cnn": pnlp.read_json(root / "cnn.json"),
-        "gru": pnlp.read_json(root / "gru.json"),
+        "fasttext_word2vec": pnlp.read_json(model_root / "fasttext_word2vec.json"),
+        "cnn": pnlp.read_json(model_root / "cnn.json"),
+        "gru": pnlp.read_json(model_root / "gru.json"),
+        "vocab_file": vocab_root / "bert/vocab.txt",
     }
 )
 

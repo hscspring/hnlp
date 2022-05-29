@@ -1,5 +1,14 @@
+from dataclasses import dataclass
 import os
-from hnlp.utils import *
+import pytest
+from hnlp.utils import (
+    check_dir,
+    check_file,
+    build_class_name,
+    build_config_from_json,
+    build_pretrained_config_from_json,
+    get_attr,
+    unfold)
 
 
 def test_build_class_name():
@@ -17,7 +26,7 @@ def test_check_dir():
     except Exception as err:
         assert "should be a path" in str(err)
     mydir = os.path.dirname(myself)
-    assert check_dir(mydir) == None
+    assert check_dir(mydir) is None
 
 
 def test_check_dir_none():
@@ -34,7 +43,7 @@ def test_check_file():
         check_file(mydir)
     except Exception as err:
         assert "should be a file" in str(err)
-    assert check_file(myself) == None
+    assert check_file(myself) is None
 
 
 def test_check_file_none():
@@ -53,6 +62,7 @@ def test_build_config_from_json():
 
 
 def test_build_pretrained_config_from_json():
+    @dataclass
     class Config:
         name: str
         location: str
@@ -70,3 +80,15 @@ def test_get_attr():
     assert get_attr(typ, "a", 0) == 1
     assert get_attr(typ, "b", 0) == 0
 
+
+@pytest.mark.parametrize("inp", [
+    [],
+    [1],
+    [[1]],
+    [[[1]]],
+    [[[[4]]]]
+])
+def test_unfold(inp):
+    res = unfold(inp)
+    if res:
+        assert not isinstance(res[0], list)

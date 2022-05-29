@@ -1,5 +1,7 @@
 from collections import namedtuple
+from collections.abc import Sequence
 from functools import wraps
+from itertools import chain
 from addict import Dict as ADict
 from pathlib import Path
 from typing import Any
@@ -51,3 +53,9 @@ def check_parameter(func):
         return func(config)
 
     return wrapper
+
+
+def unfold(lst: Sequence) -> list:
+    while lst and isinstance(lst[0], Sequence):
+        lst = list(chain(*lst))
+    return lst

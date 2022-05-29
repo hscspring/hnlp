@@ -9,12 +9,15 @@ Note: We do not add model or training to our processing chain.
 
 import collections
 from typing import List, Callable, Union, Dict, Tuple, Any
+from pathlib import Path
 from numbers import Number
 import numpy as np
 import pnlp
 
+from transformers import AutoTokenizer
+
 from hnlp.node import Node
-from hnlp.config import SpeToken
+from hnlp.config import SpeToken, default_config
 from hnlp.register import Register
 
 
@@ -33,25 +36,32 @@ class Tokenizer(Node):
     def __init__(
             self,
             name: str,
-            vocab_file: str = "",
+            vocab_file: Union[str, Path] = "",
             max_seq_len: int = 512,
             segmentor: callable = lambda x: list(x),
-            return_numpy: bool = True,
+            return_numpy: bool = False,
     ):
 
         super().__init__()
-        self.name = name
-        self.vocab_file = vocab_file
-        self.max_seq_len = max_seq_len
-        self.segmentor = segmentor
         self.return_numpy = return_numpy
         self.identity = "tokenizer"
-        self.node = super().get_cls(self.identity,
-                                    self.name)(self.vocab_file,
-                                               self.max_seq_len, self.segmentor)
 
-    # over ride Node
-    def call(self, inp: Union[str, List[str], List[Tuple[str, Any]]]):
+        if not vocab_file:
+            vocab_file = default_config.vocab_file
+
+        self.node = super().get_cls(
+            self.identity,
+            name)(
+            vocab_file,
+            max_seq_len,
+            segmentor)
+
+    # over ride Node's call function
+    def call(
+        self,
+        inp: Union[str, List[str], List[Tuple[str, Any]]],
+        *args
+    ):
         if self.return_numpy:
             # override
             return self.node.call(inp)
@@ -60,11 +70,15 @@ class Tokenizer(Node):
             return super().call(inp)
 
 
+class TokenizerMixin:
+
+    ...
+
+
 @Register.register
-class BasicTokenizer:
+class BasicTokenizer(TokenizerMixin):
 
     def __init__(self, vocab_file: str, max_seq_len: int, segmentor: Callable):
-
         self.vocab_file = vocab_file
         self.max_seq_len = max_seq_len
         self.segmentor = segmentor
@@ -189,7 +203,7 @@ class BasicTokenizer:
                 res.append(arr)
             return res
         else:
-            # Here we make signle text in a list, unlike the __call__
+            # Here we make single text in a list, unlike the __call__
             if isinstance(inp, str):
                 inp = [inp]
             ids = self.encode(inp)
@@ -200,8 +214,13 @@ class BasicTokenizer:
 @Register.register
 class BertTokenizer(BasicTokenizer):
 
+    def __init__(self, vocab_file: str, max_seq_len: int, segmentor: Callable):
+        super().__init__(vocab_file, max_seq_len, segmentor)
+        vocab_path = Path(vocab_file).parent.as_posix()
+        self.bert = AutoTokenizer.from_pretrained(vocab_path)
+
+    def tokenize(self, text: str) -> List[str]:
+        return self.bert.tokenize(text)
+
     def _encode(self, text: str) -> List[int]:
-        cls_id = self.word2id.get(SpeToken.cls)
-        sep_id = self.word2id.get(SpeToken.sep)
-        ids = super()._encode(text)
-        return [cls_id] + ids + [sep_id]
+        return self.bert.encode(text)

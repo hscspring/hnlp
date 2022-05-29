@@ -77,7 +77,7 @@ Besides, `Dataset`, `Pipeline`, `Fields` are convenient in some occasion.
 """
 
 
-class DataManagerPt(Node):
+class DataManager(Node):
 
     def __init__(
         self,
@@ -126,8 +126,9 @@ class BatchLoader:
 
     def __call__(self, inputs: List[List[str or int]] or
                  List[Tuple[List[str or int], Any]], *args):
-        self.dataset = MapStyleDataset(inputs, self.min_seq_len,
-                                       self.max_seq_len, self.dynamic_length)
+        self.dataset = MapStyleDataset(
+            inputs, self.min_seq_len,
+            self.max_seq_len, self.dynamic_length)
         batch_sampler = BatchSampler(
             self.sampler(self.dataset),
             batch_size=self.batch_size,

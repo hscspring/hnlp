@@ -3,3 +3,5 @@ numpy
 pandas
 sklearn
 pnlp
+transformers
+tensor_annotations

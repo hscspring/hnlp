@@ -5,10 +5,11 @@ Corpus Module
 The core module of Corpus. Support LabeledCorpus and UnLabeledCorpus.
 """
 
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, Union, List
 from addict import Dict as ADict
 from pyarrow import json as pjson
 from pyarrow import concat_tables
+import numpy as np
 import pandas as pd
 from sklearn.utils import shuffle
 from pnlp import Reader
@@ -46,6 +47,9 @@ class Corpus(Node):
             keys: Optional[Tuple[str, str]] = ("text", "label"),
             shuffle: bool = True,
             label_map: Dict[str, int] = ADict(),
+            special_label: str = "O",
+            add_first: bool = False,
+            add_last: bool = False,
     ):
 
         super().__init__()
@@ -55,9 +59,26 @@ class Corpus(Node):
         self.shuffle = shuffle
         self.label_map = label_map
         self.identity = "corpus"
-        self.node = super().get_cls(self.identity,
-                                    self.name)(self.pattern, self.keys,
-                                               self.shuffle, self.label_map)
+        self.special_label = special_label
+        self.add_first = add_first
+        self.add_last = add_last
+        if name == "labeled":
+            self.node = super().get_cls(
+                self.identity,
+                self.name)(
+                self.pattern,
+                self.keys,
+                self.shuffle,
+                self.label_map,
+                self.special_label,
+                self.add_first,
+                self.add_last)
+        else:
+            self.node = super().get_cls(
+                self.identity,
+                self.name)(
+                self.pattern,
+                self.shuffle)
 
     def __len__(self):
         return len(self.node)
@@ -88,7 +109,13 @@ class LabeledCorpus:
         keys: Optional[Tuple[str, str]],
         shuffle: bool,
         label_map: Dict[str, int],
+        special_label: str = "O",
+        add_first: bool = False,
+        add_last: bool = False,
     ):
+        self.special_label = special_label
+        self.add_first = add_first
+        self.add_last = add_last
         self.pattern = pattern
         self.keys = list(keys)
         self.shuffle = shuffle
@@ -105,9 +132,25 @@ class LabeledCorpus:
         df = tab.to_pandas()
         return df
 
+    def map_label_to_int(
+            self, labels: Union[str, np.ndarray]) -> Union[List[int], int]:
+        if isinstance(labels, np.ndarray):
+            labels = labels.tolist()
+            res = []
+            if self.add_first:
+                labels.insert(0, self.special_label)
+            if self.add_last:
+                labels.append(self.special_label)
+            for v in labels:
+                int_label = self.label_map.get(v)
+                res.append(int_label)
+            return res
+        else:
+            return self.label_map.get(labels)
+
     def extract_and_transform(self, df: pd.DataFrame):
         if self.label_map:
-            df["label"] = df["label"].apply(lambda x: self.label_map.get(x))
+            df["label"] = df["label"].apply(lambda x: self.map_label_to_int(x))
         data = df[self.keys]
         return data
 
@@ -121,14 +164,20 @@ class LabeledCorpus:
     def __getitem__(self, i: int):
         return self.data.iloc[i]
 
-    def __call__(self, path: str):
+    def __call__(self, path: str, *args):
+        if args:
+            sample_num = args[0]
         df = self.read_json(path)
         self.data = self.extract_and_transform(df)
         if self.shuffle:
             self.data = shuffle(self.data)
         res = []
+        i = 0
         for v in self:
+            i += 1
             res.append(v)
+            if sample_num > 0 and i >= sample_num:
+                break
         return res
 
 
@@ -146,15 +195,11 @@ class UnlabeledCorpus:
     def __init__(
         self,
         pattern: str,
-        keys: Optional[Tuple[str, str]],
         shuffle: bool,
-        label_map: dict,
     ):
 
         self.pattern = pattern
-        self.keys = keys
         self.shuffle = shuffle
-        self.label_map = label_map
         self.data = []
         self.reader = Reader(self.pattern)
         self._len = 0
@@ -176,8 +221,10 @@ class UnlabeledCorpus:
     def __getitem__(self, i):
         return self.data[i]
 
-    def __call__(self, path: str):
+    def __call__(self, path: str, sample_num: int = 0):
         self.data = self.read_file(path)
         if self.shuffle:
             self.data = shuffle(self.data)
+        if sample_num > 0:
+            return self.data[:sample_num]
         return self.data

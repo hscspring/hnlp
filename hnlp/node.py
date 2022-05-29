@@ -34,41 +34,41 @@ class Node:
             raise NotImplementedError
         return cls
 
-    def __call__(self, inputs):
-        return self.call(inputs)
+    def __call__(self, inputs, *args):
+        return self.call(inputs, *args)
 
-    def call(self, inputs: T):
+    def call(self, inputs: T, *args):
 
         if isinstance(inputs, str):
-            return self.__call_str(inputs)
+            return self.__call_str(inputs, *args)
         elif isinstance(inputs, tuple):
-            return self.__call_tuple(inputs)
+            return self.__call_tuple(inputs, *args)
         elif isinstance(inputs, list):
-            return self.__call_list(inputs)
+            return self.__call_list(inputs, *args)
         else:
-            return self.node(inputs)
+            return self.node(inputs, *args)
 
-    def __call_str(self, inputs: str):
-        return self.node(inputs)
+    def __call_str(self, inputs: str, *args):
+        return self.node(inputs, *args)
 
-    def __call_tuple(self, inputs: tuple):
+    def __call_tuple(self, inputs: tuple, *args):
         res = []
         for ele in inputs:
             if isinstance(ele, str):
-                out = self.node(ele)
+                out = self.node(ele, *args)
             else:
                 out = ele
             res.append(out)
         return tuple(res)
 
-    def __call_list(self, inputs: list):
+    def __call_list(self, inputs: list, *args):
         result = []
         # most node only accept str input.
         for inp in inputs:
             if isinstance(inp, tuple):
-                out = self.__call_tuple(inp)
+                out = self.__call_tuple(inp, *args)
             else:
-                out = self.node(inp)
+                out = self.node(inp, *args)
             result.append(out)
         return result
 
@@ -76,10 +76,10 @@ class Node:
     # All calls are happened on the Middleware Layer (Corpus, Tokenizer, etc.)
     # We DONOT call the actual object.
 
-    def run(self, inputs):
+    def run(self, inputs, *args):
         for node in self.nodes:
             # this is actually the above `__call__` function
-            inputs = node(inputs)
+            inputs = node(inputs, *args)
         return inputs
 
     def __rshift__(self, other):
