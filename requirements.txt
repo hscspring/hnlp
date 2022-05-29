@@ -4,4 +4,7 @@ pandas
 sklearn
 pnlp
 transformers
+
 tensor_annotations
+tensorflow
+tensorflow-addons
