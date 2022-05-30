@@ -1,14 +1,13 @@
+import os.path as osp
 import time
 from typing import Callable, List, Union, Tuple, Any
 import tensorflow as tf
 import tensorflow.keras as tfk
 
-
 import numpy as np
 from sklearn import metrics
 from pnlp import MagicDict
 from transformers.optimization_tf import WarmUp
-
 
 from tensorflow.keras.optimizers import Optimizer
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
@@ -16,7 +15,6 @@ from hnlp.dataset.datamanager_tf import DataLoader
 from tensor_annotations.axes import Batch, Time
 import tensor_annotations.tensorflow as ttf
 
-from hnlp.config import logger
 from hnlp.utils import unfold
 
 
@@ -31,16 +29,22 @@ class Trainer:
         self.epochs = config.epochs or 100
         self.batch_size = config.batch_size or 32
         self.learning_rate = config.learning_rate or 1e-3
+
         self.use_decay = config.use_decay or True
+        self.decay_epochs = config.decay_epochs or 3  # 几个 Epoch decay 1次
         self.use_warmup = config.use_warmup or False
-        self.early_stop_times = config.early_stop_times or 3  # 几个 Epoch 没有提升就提前终止
-        self.valid_times = config.valid_times or 0.2  # Epoch 内多少比例 Step 进行一次验证
+
+        self.early_stop_epochs = config.early_stop_epochs or 3  # 几个 Epoch 没有提升就提前终止
+        self.valid_epochs = config.valid_epochs or 0.3  # Epoch 内多少比例 Step 进行一次验证
+
         self.early_stop_steps = config.early_stop_steps or None
         self.valid_steps = config.valid_steps or None
 
-        self.ckpt_path = config.ckpt_path or "./output/ckpt/"
-        self.logs_path = config.logs_path or "./output/logs/"
-        self.save_path = config.save_path or "./output/save/"
+        self.out_path = config.out_path or "./output/"
+
+        self.ckpt_path = osp.join(self.out_path, "ckpt")
+        self.logs_path = osp.join(self.out_path, "logs")
+        self.save_path = osp.join(self.out_path, "save")
 
         self.label_list = config.label_list or None
 
@@ -61,15 +65,16 @@ class Trainer:
         data_size: int
     ) -> Union[float, LearningRateSchedule]:
         steps_per_epoch = np.ceil(data_size / self.batch_size).astype(np.int32)
+        decay_steps = self.decay_epochs * steps_per_epoch
 
         info = f"Epochs: {self.epochs}, Steps per epoch: {steps_per_epoch}"
-        logger.info(info)
+        tf.print(info)
 
         lr = self.learning_rate
         if self.use_decay:
             lr = tfk.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=self.learning_rate,
-                decay_steps=steps_per_epoch,  # 每隔 decay_step decay 一次
+                decay_steps=decay_steps,  # 每隔 decay_step decay 一次
                 decay_rate=0.96,
                 staircase=True,
             )
@@ -117,9 +122,8 @@ class Trainer:
                 ts, ps, target_names=self.label_list, digits=4
             )
             confusion = metrics.confusion_matrix(ts, ps)
-            tf.print(report)
-            tf.print(confusion)
             tf.print(f"TestLoss: {loss:.4f}  |  TestMse/Acc: {acc:.4f}\n")
+            return acc, loss, report, confusion
         else:
             return acc, loss
 
@@ -133,7 +137,7 @@ class Trainer:
     ) -> Tuple[float, Any]:
         with tf.GradientTape() as tape:
             output = model(inp, y_true, training=True)
-            loss = loss_fn(output)
+            loss = loss_fn(output, y_true)
         grads = tape.gradient(loss, model.trainable_weights)
         optimizer.apply_gradients(
             grads_and_vars=zip(
@@ -162,7 +166,7 @@ class Trainer:
         y_true: ttf.Tensor2[Batch, Time]
     ) -> Tuple[float, Any]:
         output = model(inp, y_true, training=False)
-        loss = loss_fn(output)
+        loss = loss_fn(output, y_true)
         return loss, output
 
     def test_step(
@@ -202,9 +206,9 @@ class Trainer:
 
         checkpoint.restore(manager.latest_checkpoint)
         if manager.latest_checkpoint:
-            logger.info(f"Restored from {manager.latest_checkpoint}")
+            tf.print(f"Restored from {manager.latest_checkpoint}")
         else:
-            logger.info("Initializing from scratch.")
+            tf.print("Initializing from scratch.")
 
         summary_writer = tf.summary.create_file_writer(self.logs_path)
         val_best_loss = float("inf")
@@ -215,9 +219,9 @@ class Trainer:
         # batches
         epoch_steps = np.ceil(data_size / self.batch_size).astype(np.int32)
         # 连续3个epoch没有提升
-        early_stop_steps = self.early_stop_times * epoch_steps
+        early_stop_steps = self.early_stop_epochs * epoch_steps
         # 1/5个epoch验证一次
-        valid_steps = self.valid_steps or int(self.valid_times * epoch_steps)
+        valid_steps = self.valid_steps or int(self.valid_epochs * epoch_steps)
         valid_steps = max(1, valid_steps)
 
         tf.print(

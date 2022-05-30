@@ -167,6 +167,8 @@ class LabeledCorpus:
     def __call__(self, path: str, *args):
         if args:
             sample_num = args[0]
+        else:
+            sample_num = 0
         df = self.read_json(path)
         self.data = self.extract_and_transform(df)
         if self.shuffle:
@@ -221,7 +223,11 @@ class UnlabeledCorpus:
     def __getitem__(self, i):
         return self.data[i]
 
-    def __call__(self, path: str, sample_num: int = 0):
+    def __call__(self, path: str, *args):
+        if args:
+            sample_num = args[0]
+        else:
+            sample_num = 0
         self.data = self.read_file(path)
         if self.shuffle:
             self.data = shuffle(self.data)
