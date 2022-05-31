@@ -47,38 +47,26 @@ class Corpus(Node):
             keys: Optional[Tuple[str, str]] = ("text", "label"),
             shuffle: bool = True,
             label_map: Dict[str, int] = ADict(),
-            special_label: str = "O",
-            add_first: bool = False,
-            add_last: bool = False,
     ):
 
         super().__init__()
         self.name = name
-        self.pattern = pattern
-        self.keys = keys
-        self.shuffle = shuffle
-        self.label_map = label_map
         self.identity = "corpus"
-        self.special_label = special_label
-        self.add_first = add_first
-        self.add_last = add_last
+
         if name == "labeled":
             self.node = super().get_cls(
                 self.identity,
                 self.name)(
-                self.pattern,
-                self.keys,
-                self.shuffle,
-                self.label_map,
-                self.special_label,
-                self.add_first,
-                self.add_last)
+                pattern,
+                keys,
+                shuffle,
+                label_map)
         else:
             self.node = super().get_cls(
                 self.identity,
                 self.name)(
-                self.pattern,
-                self.shuffle)
+                pattern,
+                shuffle)
 
     def __len__(self):
         return len(self.node)
@@ -109,13 +97,7 @@ class LabeledCorpus:
         keys: Optional[Tuple[str, str]],
         shuffle: bool,
         label_map: Dict[str, int],
-        special_label: str = "O",
-        add_first: bool = False,
-        add_last: bool = False,
     ):
-        self.special_label = special_label
-        self.add_first = add_first
-        self.add_last = add_last
         self.pattern = pattern
         self.keys = list(keys)
         self.shuffle = shuffle
@@ -137,10 +119,6 @@ class LabeledCorpus:
         if isinstance(labels, np.ndarray):
             labels = labels.tolist()
             res = []
-            if self.add_first:
-                labels.insert(0, self.special_label)
-            if self.add_last:
-                labels.append(self.special_label)
             for v in labels:
                 int_label = self.label_map.get(v)
                 res.append(int_label)
