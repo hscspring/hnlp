@@ -10,7 +10,6 @@ Note: We do not add model or training to our processing chain.
 import collections
 from typing import List, Callable, Union, Dict, Tuple, Any
 from pathlib import Path
-from numbers import Number
 import numpy as np
 import pnlp
 
@@ -66,7 +65,7 @@ class Tokenizer(Node):
             # override
             return self.node.call(inp)
         else:
-            # use Node call directly
+            # use Node call directly, that is just Node's __call__
             return super().call(inp)
 
 
@@ -136,21 +135,6 @@ class BasicTokenizer(TokenizerMixin):
             res.append(ids)
         return res
 
-    def padding(self, ids: List[List[int]]) -> List[List[int]]:
-        pad_id = self.word2id.get(SpeToken.pad)
-        # arr = np.zeros((len(ids), self.max_seq_len), dtype=np.int32)
-        res = []
-        for i, sen_ids in enumerate(ids):
-            length = len(sen_ids)
-            if length < self.max_seq_len:
-                pad = [pad_id] * (self.max_seq_len - length)
-                sen_ids.extend(pad)
-            else:
-                sen_ids = sen_ids[:self.max_seq_len]
-            res.append(sen_ids)
-            # arr[i] = sen_ids
-        return res
-
     def decode(self, ids: List[int]) -> str:
         """
         Decode ids to tokens.
@@ -187,19 +171,18 @@ class BasicTokenizer(TokenizerMixin):
     def __call__(self, inp: Union[str, List[str]]):
         return self.encode(inp)
 
-    def call(self, inp: Union[str, List[str], List[Tuple[str,
-                                                         Any]]]) -> np.array:
+    def call(
+        self,
+        inp: Union[str, List[str], List[Tuple[str, Any]]]
+    ) -> np.array:
         if isinstance(inp, list) and isinstance(inp[0], tuple):
             res = []
             for i in range(len(inp[0])):
                 inputs = [v[i] for v in inp]
                 if isinstance(inputs[0], str):
                     arr = self.call(inputs)
-                elif isinstance(inputs[0], Number):
-                    arr = np.array(inputs, dtype=np.float32)
                 else:
-                    info = "hnlp: invalid type of iterable item"
-                    raise ValueError(info)
+                    arr = inputs
                 res.append(arr)
             return res
         else:
@@ -209,6 +192,21 @@ class BasicTokenizer(TokenizerMixin):
             ids = self.encode(inp)
             padded = self.padding(ids)
             return np.array(padded, dtype=np.int32)
+
+    def padding(self, ids: List[List[int]]) -> List[List[int]]:
+        pad_id = self.word2id.get(SpeToken.pad)
+        # arr = np.zeros((len(ids), self.max_seq_len), dtype=np.int32)
+        res = []
+        for i, sen_ids in enumerate(ids):
+            length = len(sen_ids)
+            if length < self.max_seq_len:
+                pad = [pad_id] * (self.max_seq_len - length)
+                sen_ids.extend(pad)
+            else:
+                sen_ids = sen_ids[:self.max_seq_len]
+            res.append(sen_ids)
+            # arr[i] = sen_ids
+        return res
 
 
 @Register.register

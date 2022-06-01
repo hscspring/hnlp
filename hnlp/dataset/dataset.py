@@ -48,7 +48,8 @@ class MapStyleDataset:
                                    replace=False,
                                    p=None)
         chosen = [self.data[i] for i in indexes]
-        return MapStyleDataset.batch_sequences(chosen, self.max_seq_len, self.dynamic_length)
+        return MapStyleDataset.batch_sequences(
+            chosen, self.max_seq_len, self.dynamic_length)
 
     @staticmethod
     def batch_sequences(
@@ -57,16 +58,14 @@ class MapStyleDataset:
         dynamic_length: bool
     ):
         if type(batch[0]) == tuple:
-            batch_tokens = [ele[0] for ele in batch]
-            padded_tokens = MapStyleDataset.padding_tokens(
-                batch_tokens, max_seq_len, dynamic_length)
-            if len(batch[0]) > 1:
-                labels = [ele[1] for ele in batch]
-                if isinstance(labels[0], list):
-                    labels = MapStyleDataset.padding_tokens(
-                        labels, max_seq_len, dynamic_length)
-                return (padded_tokens, labels)
-            return padded_tokens
+            new_batch = []
+            ele_len = len(batch[0])
+            for i in range(ele_len):
+                tks = [v[i] for v in batch]
+                padded = MapStyleDataset.padding_tokens(
+                    tks, max_seq_len, dynamic_length)
+                new_batch.append(padded)
+            return tuple(new_batch)
         else:
             batch_tokens = batch
             padded_tokens = MapStyleDataset.padding_tokens(

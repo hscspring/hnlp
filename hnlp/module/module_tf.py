@@ -18,11 +18,17 @@ def pretrained(config: Dict[str, Any],
     config: Config dict
     inputs: (None, seq_len)
     mask: (None, seq_len)
+    token_type_ids: (None, seq_len)
     """
     config = ADict(config)
     if config.use_pretrained_bert:
-        layer = PretrainedBert(config.pretrained_bert_path,
-                               config.fix_pretrained)(inputs, mask, training)
+        layer = PretrainedBert(
+            config.pretrained_bert_path,
+            config.fix_pretrained)(
+            inputs,
+            mask,
+            token_type_ids,
+            training)
         return layer
     elif config.use_pretrained_word2vec:
         embed = PretrainedWord2vec(config.pretrained_word2vec_path,

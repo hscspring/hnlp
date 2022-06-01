@@ -114,7 +114,7 @@ class DataLoader:
                 max_seq_len=self.max_seq_len,
                 dynamic_length=self.dynamic_length
             )
-            tup = (tf.constant(v) for v in batch)
+            tup = (tf.constant(v, dtype=tf.int32) for v in batch)
             yield tup
 
     def __len__(self):

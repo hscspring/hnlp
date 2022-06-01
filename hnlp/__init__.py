@@ -1,3 +1,4 @@
+from importlib_metadata import version
 from hnlp.node import Node, N
 from hnlp.register import Register
 
@@ -11,3 +12,6 @@ from hnlp.trainer import rdrop_loss
 
 
 from hnlp.sampler import gen_input, gen_hidden
+
+
+__version__ = "0.0.2"
