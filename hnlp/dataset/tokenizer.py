@@ -214,6 +214,7 @@ class BertTokenizer(BasicTokenizer):
 
     def __init__(self, vocab_file: str, max_seq_len: int, segmentor: Callable):
         super().__init__(vocab_file, max_seq_len, segmentor)
+        self.max_seq_len = max_seq_len
         vocab_path = Path(vocab_file).parent.as_posix()
         self.bert = AutoTokenizer.from_pretrained(vocab_path)
 
@@ -221,4 +222,6 @@ class BertTokenizer(BasicTokenizer):
         return self.bert.tokenize(text)
 
     def _encode(self, text: str) -> List[int]:
-        return self.bert.encode(text)
+        return self.bert.encode(
+            text, padding="max_length", max_length=self.max_seq_len, truncation=True
+        )

@@ -76,15 +76,9 @@ class MapStyleDataset:
     def padding_tokens(
         batch_tokens: List[List[Union[str, int]]],
         max_seq_len: int,
-        dynamic_length: bool
+        dynamic_length: bool,
+        pad_value: int = 0,
     ):
-
-        def get_pad(ele):
-            if type(ele[0]) == int:
-                return 0
-            else:
-                return SpeToken.pad
-
         max_len = max([len(item) for item in batch_tokens])
         if dynamic_length:
             max_len = min(max_len, max_seq_len)
@@ -95,6 +89,6 @@ class MapStyleDataset:
             if len(ele) > max_len:
                 ele = ele[:max_len]
             else:
-                ele = ele + [get_pad(ele)] * (max_len - len(ele))
+                ele = ele + [pad_value] * (max_len - len(ele))
             padded_tokens.append(ele)
         return padded_tokens

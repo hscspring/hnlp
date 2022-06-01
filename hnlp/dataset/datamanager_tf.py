@@ -19,6 +19,7 @@ class DataManager(Node):
         dynamic_length: bool = False,
         drop_last: bool = False,
         collate_fn: Callable = None,
+        return_type: str = "tf"
     ):
         super().__init__()
         self.name = name
@@ -30,7 +31,8 @@ class DataManager(Node):
             max_seq_len,
             dynamic_length,
             drop_last,
-            collate_fn
+            collate_fn,
+            return_type
         )
 
     # override the Node's call function
@@ -47,7 +49,8 @@ class BatchLoader:
         max_seq_len: int,
         dynamic_length: bool,
         drop_last: bool,
-        collate_fn: Callable = None
+        collate_fn: Callable,
+        return_type: str,
     ):
         self.batch_size = batch_size
         self.min_seq_len = min_seq_len
@@ -55,6 +58,7 @@ class BatchLoader:
         self.dynamic_length = dynamic_length
         self.drop_last = drop_last
         self.collate_fn = collate_fn
+        self.return_type = return_type
 
     def __call__(self, inputs: List[DatasetType], *args):
         self.dataset = MapStyleDataset(inputs, self.min_seq_len)
@@ -70,6 +74,7 @@ class BatchLoader:
             collate_fn,
             self.max_seq_len,
             self.dynamic_length,
+            self.return_type
         )
         return loader
 
@@ -84,7 +89,8 @@ class DataLoader:
             drop_last: bool,
             collate_fn: Callable,
             max_seq_len: int,
-            dynamic_length: bool
+            dynamic_length: bool,
+            return_type: str,
     ):
         self.dataset = dataset
         self.batch_size = batch_size
@@ -93,6 +99,7 @@ class DataLoader:
         self.collate_fn = collate_fn
         self.max_seq_len = max_seq_len
         self.dynamic_length = dynamic_length
+        self.return_type = return_type
 
         if self.random_sample:
             rng = np.random.default_rng()
@@ -114,8 +121,11 @@ class DataLoader:
                 max_seq_len=self.max_seq_len,
                 dynamic_length=self.dynamic_length
             )
-            tup = (tf.constant(v, dtype=tf.int32) for v in batch)
-            yield tup
+            if self.return_type == "tf":
+                batch = (tf.constant(v, dtype=tf.int32) for v in batch)
+            elif self.return_type == "np":
+                batch = (np.array(v, dtype=np.int32) for v in batch)
+            yield batch
 
     def __len__(self):
         return self.length
@@ -131,7 +141,8 @@ class RandomDataManagerTf(BatchLoader):
         max_seq_len: int,
         dynamic_length: bool,
         drop_last: bool,
-        collate_fn: Callable = None
+        collate_fn: Callable,
+        return_type: str,
     ):
         super().__init__(
             batch_size,
@@ -139,7 +150,8 @@ class RandomDataManagerTf(BatchLoader):
             max_seq_len,
             dynamic_length,
             drop_last,
-            collate_fn)
+            collate_fn,
+            return_type)
         self.random_sample = True
 
 
@@ -153,7 +165,8 @@ class SequenceDataManagerTf(BatchLoader):
         max_seq_len: int,
         dynamic_length: bool,
         drop_last: bool,
-        collate_fn: Callable = None
+        collate_fn: Callable,
+        return_type: str,
     ):
         super().__init__(
             batch_size,
@@ -161,5 +174,6 @@ class SequenceDataManagerTf(BatchLoader):
             max_seq_len,
             dynamic_length,
             drop_last,
-            collate_fn)
+            collate_fn,
+            return_type)
         self.random_sample = False

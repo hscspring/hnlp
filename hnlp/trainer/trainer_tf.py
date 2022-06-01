@@ -26,7 +26,9 @@ class Trainer:
         self.use_tf_function = config.use_tf_function or False
 
         # Training
-        self.epochs = config.epochs or 100
+        self.optimizer_str = config.optimizer or "Adam"
+
+        self.epochs = config.epochs or 20
         self.batch_size = config.batch_size or 32
         self.learning_rate = config.learning_rate or 1e-3
 
@@ -85,11 +87,64 @@ class Trainer:
                     warmup_step=steps_per_epoch // 2)
         return lr
 
+    def get_optimizer(self, optimizer: str, data_size: int):
+        schedule = self.get_lr_schedule(data_size)
+        optimizer = getattr(tfk.optimizers, optimizer)(
+            learning_rate=schedule)
+        return optimizer
+
+    def _train_step(
+        self,
+        model: Callable,
+        inp: ttf.Tensor2[Batch, Time],
+        y_true: ttf.Tensor2[Batch, Time],
+    ) -> Tuple[float, Any]:
+        with tf.GradientTape() as tape:
+            output = model(inp, y_true, training=True)
+            loss = model.loss_fn(output, y_true)
+        grads = tape.gradient(loss, model.trainable_weights)
+        self.optimizer.apply_gradients(
+            grads_and_vars=zip(
+                grads, model.trainable_weights))
+        return loss, output
+
+    def train_step(
+        self,
+        model: Callable,
+        inp: ttf.Tensor2[Batch, Time],
+        y_true: ttf.Tensor2[Batch, Time],
+    ) -> Tuple[float, Any]:
+        if self.use_tf_function:
+            func = tf.function(self._train_step)
+        else:
+            func = self._train_step
+        return func(model, inp, y_true)
+
+    def _test_step(
+        self,
+        model: Callable,
+        inp: ttf.Tensor2[Batch, Time],
+        y_true: ttf.Tensor2[Batch, Time]
+    ) -> Tuple[float, Any]:
+        output = model(inp, y_true, training=False)
+        loss = model.loss_fn(output, y_true)
+        return loss, output
+
+    def test_step(
+        self,
+        model: Callable,
+        inp: ttf.Tensor2[Batch, Time],
+        y_true: ttf.Tensor2[Batch, Time]
+    ) -> Tuple[float, Any]:
+        if self.use_tf_function:
+            func = tf.function(self._test_step)
+        else:
+            func = self._test_step
+        return func(model, inp, y_true)
+
     def evaluate(
         self,
         model: Callable,
-        loss_fn: Callable,
-        metric_step: Callable,
         dataset: DataLoader,
         print_report: bool = False
     ):
@@ -103,9 +158,10 @@ class Trainer:
                 inputs = (inputs[0], )
             else:
                 inputs = tuple(inputs)
-            loss, output = self.test_step(model, loss_fn, *inputs, labels)
+
+            loss, output = self.test_step(model, *inputs, labels)
             total_loss += loss
-            y_preds, y_trues = metric_step(model, output, labels)
+            y_preds, y_trues = model.metric_step(output, labels)
 
             y_pred_all.append(y_preds)
             y_true_all.append(y_trues)
@@ -114,6 +170,7 @@ class Trainer:
 
         ps = unfold(y_pred_all)
         ts = unfold(y_true_all)
+
         acc = Trainer.get_acc(ps, ts)
         loss = total_loss / steps
 
@@ -127,75 +184,20 @@ class Trainer:
         else:
             return acc, loss
 
-    def _train_step(
-        self,
-        model: Callable,
-        optimizer: Optimizer,
-        loss_fn: Callable,
-        inp: ttf.Tensor2[Batch, Time],
-        y_true: ttf.Tensor2[Batch, Time],
-    ) -> Tuple[float, Any]:
-        with tf.GradientTape() as tape:
-            output = model(inp, y_true, training=True)
-            loss = loss_fn(output, y_true)
-        grads = tape.gradient(loss, model.trainable_weights)
-        optimizer.apply_gradients(
-            grads_and_vars=zip(
-                grads, model.trainable_weights))
-        return loss, output
-
-    def train_step(
-        self,
-        model: Callable,
-        optimizer: Optimizer,
-        loss_fn: Callable,
-        inp: ttf.Tensor2[Batch, Time],
-        y_true: ttf.Tensor2[Batch, Time],
-    ) -> Tuple[float, Any]:
-        if self.use_tf_function:
-            func = tf.function(self._train_step)
-        else:
-            func = self._train_step
-        return func(model, optimizer, loss_fn, inp, y_true)
-
-    def _test_step(
-        self,
-        model: Callable,
-        loss_fn: Callable,
-        inp: ttf.Tensor2[Batch, Time],
-        y_true: ttf.Tensor2[Batch, Time]
-    ) -> Tuple[float, Any]:
-        output = model(inp, y_true, training=False)
-        loss = loss_fn(output, y_true)
-        return loss, output
-
-    def test_step(
-        self,
-        model: Callable,
-        loss_fn: Callable,
-        inp: ttf.Tensor2[Batch, Time],
-        y_true: ttf.Tensor2[Batch, Time]
-    ) -> Tuple[float, Any]:
-        if self.use_tf_function:
-            func = tf.function(self._test_step)
-        else:
-            func = self._test_step
-        return func(model, loss_fn, inp, y_true)
-
     def train(
         self,
         model: Callable,
-        optimizer: Optimizer,
-        loss_fn: Callable,
-        metric_step: Callable,
         train_dataset: DataLoader,
         val_dataset: DataLoader
     ):
 
         start_time = time.perf_counter()
+        data_size = len(train_dataset)
+        self.optimizer = self.get_optimizer(self.optimizer_str, data_size)
+
         checkpoint = tf.train.Checkpoint(
             step=tf.Variable(0),
-            optimizer=optimizer,
+            optimizer=self.optimizer,
             model=model
         )
         manager = tf.train.CheckpointManager(
@@ -215,7 +217,6 @@ class Trainer:
         last_improve = 0
         flag = False
 
-        data_size = len(train_dataset)
         # batches
         epoch_steps = np.ceil(data_size / self.batch_size).astype(np.int32)
         # 连续3个epoch没有提升
@@ -228,8 +229,8 @@ class Trainer:
             f"Epoch steps: {epoch_steps}, Valid steps: {valid_steps}, Early stop steps: {early_stop_steps}"
         )
 
-        for epoch in range(self.epochs):
-            tf.print(f"\nEpoch {epoch+1}/{self.epochs}")
+        for epoch in range(1, self.epochs + 1):
+            tf.print(f"\nEpoch {epoch}/{self.epochs}")
             train_loss = 0.0
             train_acc = 0.0
             step = 0
@@ -238,12 +239,10 @@ class Trainer:
                     inputs = (inputs[0], )
                 else:
                     inputs = tuple(inputs)
-                loss, output = self.train_step(
-                    model, optimizer, loss_fn, *inputs, labels
-                )
+                loss, output = self.train_step(model, *inputs, labels)
                 train_loss += loss.numpy()
 
-                y_preds, y_trues = metric_step(model, output, labels)
+                y_preds, y_trues = model.metric_step(output, labels)
                 acc = Trainer.get_acc(y_preds, y_trues)
                 train_acc += acc
 
@@ -251,9 +250,7 @@ class Trainer:
                 total_step = int(checkpoint.step)
 
                 if total_step > valid_steps and total_step % valid_steps == 0:
-                    val_acc, val_loss = self.evaluate(
-                        model, loss_fn, metric_step, val_dataset
-                    )
+                    val_acc, val_loss = self.evaluate(model, val_dataset)
                     if val_loss < val_best_loss:
                         val_best_loss = val_loss
                         last_improve = total_step
@@ -261,7 +258,7 @@ class Trainer:
                         tf.print(f"Model saved to {path}")
 
                     msg = f"Total Step: {total_step},  Step(Batch): {step},  "
-                    msg += f"LearningRate: {optimizer.learning_rate(total_step).numpy():.6f},  \n"
+                    msg += f"LearningRate: {self.optimizer.learning_rate(total_step).numpy():.6f},  \n"
                     msg += f"TrainLoss: {loss.numpy():.4f},  TrainAcc:{acc:.4f},  "
                     msg += f"ValidLoss: {val_loss:.4f},  ValidAcc: {val_acc:.4f}\n"
                     msg += "- " * 30
@@ -287,12 +284,10 @@ class Trainer:
             mins = secs / 60
             secs = secs % 60
 
-            val_acc, val_loss = self.evaluate(
-                model, loss_fn, metric_step, val_dataset
-            )
+            val_acc, val_loss = self.evaluate(model, val_dataset)
 
             tf.print(
-                f"Epoch: {epoch+1} | time in {mins:.1f} minutes, {secs} seconds")
+                f"Epoch: {epoch} | time in {mins:.1f} minutes, {secs} seconds")
             tf.print(
                 f"\tTrainLoss: {train_loss/step:.4f}  |  TrainMse/Acc: {train_acc/step:.4f}")
             tf.print(

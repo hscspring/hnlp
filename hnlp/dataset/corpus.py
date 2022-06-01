@@ -120,7 +120,7 @@ class LabeledCorpus:
             labels = labels.tolist()
             res = []
             for v in labels:
-                int_label = self.label_map.get(v)
+                int_label = self.label_map[v]
                 res.append(int_label)
             return res
         else:
@@ -161,7 +161,7 @@ class LabeledCorpus:
         return res
 
 
-@Register.register
+@ Register.register
 class UnlabeledCorpus:
     """
     UnlabeldCorpus module
