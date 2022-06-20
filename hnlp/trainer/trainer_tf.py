@@ -16,12 +16,30 @@ from tensor_annotations.axes import Batch, Time
 import tensor_annotations.tensorflow as ttf
 
 from hnlp.utils import unfold
+import tensorflow_addons as tfa
+import tensorflow.keras.backend as K
+
+
+def loss_fn(output, y_true):
+    loss = K.mean(K.sparse_categorical_crossentropy(
+        y_true, output, from_logits=False))
+    return loss
+
+
+def metric_step(
+    output, y_true
+) -> Tuple[List[Union[int, List[int]]], List[Union[int, List[int]]]]:
+    y_preds = K.argmax(output, axis=-1).numpy().tolist()
+    y_trues = y_true.numpy().tolist()
+    return y_preds, y_trues
 
 
 class Trainer:
 
     def __init__(self, config: MagicDict):
+
         self.config = config
+        self.task = config.task
 
         self.use_tf_function = config.use_tf_function or False
 
@@ -100,12 +118,21 @@ class Trainer:
         y_true: ttf.Tensor2[Batch, Time],
     ) -> Tuple[float, Any]:
         with tf.GradientTape() as tape:
-            output = model(inp, y_true, training=True)
-            loss = model.loss_fn(output, y_true)
+            output = model(inp, training=True)
+            loss = loss_fn(output, y_true)
         grads = tape.gradient(loss, model.trainable_weights)
         self.optimizer.apply_gradients(
-            grads_and_vars=zip(
-                grads, model.trainable_weights))
+            grads_and_vars=zip(grads, model.trainable_weights))
+        return loss, output
+
+    def _test_step(
+        self,
+        model: Callable,
+        inp: ttf.Tensor2[Batch, Time],
+        y_true: ttf.Tensor2[Batch, Time]
+    ) -> Tuple[float, Any]:
+        output = model(inp, training=False)
+        loss = loss_fn(output, y_true)
         return loss, output
 
     def train_step(
@@ -119,16 +146,6 @@ class Trainer:
         else:
             func = self._train_step
         return func(model, inp, y_true)
-
-    def _test_step(
-        self,
-        model: Callable,
-        inp: ttf.Tensor2[Batch, Time],
-        y_true: ttf.Tensor2[Batch, Time]
-    ) -> Tuple[float, Any]:
-        output = model(inp, y_true, training=False)
-        loss = model.loss_fn(output, y_true)
-        return loss, output
 
     def test_step(
         self,
@@ -161,7 +178,7 @@ class Trainer:
 
             loss, output = self.test_step(model, *inputs, labels)
             total_loss += loss
-            y_preds, y_trues = model.metric_step(output, labels)
+            y_preds, y_trues = metric_step(output, labels)
 
             y_pred_all.append(y_preds)
             y_true_all.append(y_trues)
@@ -242,7 +259,7 @@ class Trainer:
                 loss, output = self.train_step(model, *inputs, labels)
                 train_loss += loss.numpy()
 
-                y_preds, y_trues = model.metric_step(output, labels)
+                y_preds, y_trues = metric_step(output, labels)
                 acc = Trainer.get_acc(y_preds, y_trues)
                 train_acc += acc
 
@@ -280,6 +297,7 @@ class Trainer:
                     flag = True
                     break
 
+            tf.print("step", step)
             secs = int(time.perf_counter() - start_time)
             mins = secs / 60
             secs = secs % 60

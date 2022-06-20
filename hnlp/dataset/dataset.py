@@ -62,8 +62,11 @@ class MapStyleDataset:
             ele_len = len(batch[0])
             for i in range(ele_len):
                 tks = [v[i] for v in batch]
-                padded = MapStyleDataset.padding_tokens(
-                    tks, max_seq_len, dynamic_length)
+                if isinstance(tks[0], list):
+                    padded = MapStyleDataset.padding_tokens(
+                        tks, max_seq_len, dynamic_length)
+                else:
+                    padded = tks
                 new_batch.append(padded)
             return tuple(new_batch)
         else:

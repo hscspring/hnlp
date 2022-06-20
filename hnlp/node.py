@@ -80,6 +80,7 @@ class Node:
         for node in self.nodes:
             # this is actually the above `__call__` function
             inputs = node(inputs, *args)
+        self.nodes = [self]
         return inputs
 
     def __rshift__(self, other):

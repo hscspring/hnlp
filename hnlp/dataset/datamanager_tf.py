@@ -1,7 +1,9 @@
+from posixpath import split
 from typing import List, Callable
 
 import tensorflow as tf
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 from hnlp.node import Node
 from hnlp.register import Register
@@ -19,11 +21,14 @@ class DataManager(Node):
         dynamic_length: bool = False,
         drop_last: bool = False,
         collate_fn: Callable = None,
-        return_type: str = "tf"
+        return_type: str = "tf",
+        split_val: bool = True,
     ):
         super().__init__()
         self.name = name
         self.identity = "data_manager_tf"
+
+        self.split_val = split_val
 
         self.node = super().get_cls(self.identity, self.name)(
             batch_size,
@@ -32,7 +37,8 @@ class DataManager(Node):
             dynamic_length,
             drop_last,
             collate_fn,
-            return_type
+            return_type,
+            self.split_val,
         )
 
     # override the Node's call function
@@ -51,6 +57,7 @@ class BatchLoader:
         drop_last: bool,
         collate_fn: Callable,
         return_type: str,
+        split_val: bool,
     ):
         self.batch_size = batch_size
         self.min_seq_len = min_seq_len
@@ -59,24 +66,113 @@ class BatchLoader:
         self.drop_last = drop_last
         self.collate_fn = collate_fn
         self.return_type = return_type
+        self.split_val = split_val
 
     def __call__(self, inputs: List[DatasetType], *args):
-        self.dataset = MapStyleDataset(inputs, self.min_seq_len)
         if not self.collate_fn:
             collate_fn = MapStyleDataset.batch_sequences
         else:
             collate_fn = self.collate_fn
-        loader = DataLoader(
-            self.dataset,
-            self.batch_size,
-            self.random_sample,
-            self.drop_last,
+
+        if self.split_val:
+            train, val = train_test_split(inputs, test_size=0.2)
+            self.train_dataset = MapStyleDataset(train, self.min_seq_len)
+            self.val_dataset = MapStyleDataset(val, self.min_seq_len)
+            train_loader = DataLoader(
+                self.train_dataset,
+                self.batch_size,
+                self.random_sample,
+                self.drop_last,
+                collate_fn,
+                self.max_seq_len,
+                self.dynamic_length,
+                self.return_type
+            )
+            val_loader = DataLoader(
+                self.val_dataset,
+                self.batch_size,
+                False,
+                self.drop_last,
+                collate_fn,
+                self.max_seq_len,
+                self.dynamic_length,
+                self.return_type
+            )
+            return train_loader, val_loader
+        else:
+            train = inputs
+            self.train_dataset = MapStyleDataset(train, self.min_seq_len)
+            loader = DataLoader(
+                self.train_dataset,
+                self.batch_size,
+                self.random_sample,
+                self.drop_last,
+                collate_fn,
+                self.max_seq_len,
+                self.dynamic_length,
+                self.return_type
+            )
+            return loader
+
+
+@Register.register
+class RandomDataManagerTf(BatchLoader):
+
+    def __init__(
+        self,
+        batch_size: int,
+        min_seq_len: int,
+        max_seq_len: int,
+        dynamic_length: bool,
+        drop_last: bool,
+        collate_fn: Callable,
+        return_type: str,
+        split_val: bool,
+    ):
+        super().__init__(
+            batch_size,
+            min_seq_len,
+            max_seq_len,
+            dynamic_length,
+            drop_last,
             collate_fn,
-            self.max_seq_len,
-            self.dynamic_length,
-            self.return_type
+            return_type,
+            split_val
         )
-        return loader
+        self.random_sample = True
+
+    def __call__(self, inputs: List[DatasetType], *args):
+        return super().__call__(inputs, *args)
+
+
+@Register.register
+class SequenceDataManagerTf(BatchLoader):
+
+    def __init__(
+        self,
+        batch_size: int,
+        min_seq_len: int,
+        max_seq_len: int,
+        dynamic_length: bool,
+        drop_last: bool,
+        collate_fn: Callable,
+        return_type: str,
+        split_val: bool,
+    ):
+        super().__init__(
+            batch_size,
+            min_seq_len,
+            max_seq_len,
+            dynamic_length,
+            drop_last,
+            collate_fn,
+            return_type,
+            split_val
+        )
+        self.random_sample = False
+
+    def __call__(self, inputs: List[DatasetType], *args):
+        return super().__call__(inputs, *args)
 
 
 class DataLoader:
@@ -102,7 +198,7 @@ class DataLoader:
         self.return_type = return_type
 
         if self.random_sample:
-            rng = np.random.default_rng()
+            rng = np.random.default_rng(42)
             rng.shuffle(self.dataset.data)
 
         self.length = len(self.dataset)
@@ -129,51 +225,3 @@ class DataLoader:
 
     def __len__(self):
         return self.length
-
-
-@Register.register
-class RandomDataManagerTf(BatchLoader):
-
-    def __init__(
-        self,
-        batch_size: int,
-        min_seq_len: int,
-        max_seq_len: int,
-        dynamic_length: bool,
-        drop_last: bool,
-        collate_fn: Callable,
-        return_type: str,
-    ):
-        super().__init__(
-            batch_size,
-            min_seq_len,
-            max_seq_len,
-            dynamic_length,
-            drop_last,
-            collate_fn,
-            return_type)
-        self.random_sample = True
-
-
-@Register.register
-class SequenceDataManagerTf(BatchLoader):
-
-    def __init__(
-        self,
-        batch_size: int,
-        min_seq_len: int,
-        max_seq_len: int,
-        dynamic_length: bool,
-        drop_last: bool,
-        collate_fn: Callable,
-        return_type: str,
-    ):
-        super().__init__(
-            batch_size,
-            min_seq_len,
-            max_seq_len,
-            dynamic_length,
-            drop_last,
-            collate_fn,
-            return_type)
-        self.random_sample = False

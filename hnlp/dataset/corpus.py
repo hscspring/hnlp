@@ -45,7 +45,7 @@ class Corpus(Node):
             name: str,
             pattern: str = "*.*",
             keys: Optional[Tuple[str, str]] = ("text", "label"),
-            shuffle: bool = True,
+            shuffle: bool = False,
             label_map: Dict[str, int] = ADict(),
     ):
 

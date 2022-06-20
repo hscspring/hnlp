@@ -36,7 +36,7 @@ class Tokenizer(Node):
             self,
             name: str,
             vocab_file: Union[str, Path] = "",
-            max_seq_len: int = 512,
+            max_seq_len: int = 0,
             segmentor: callable = lambda x: list(x),
             return_numpy: bool = False,
     ):
@@ -169,7 +169,8 @@ class BasicTokenizer(TokenizerMixin):
         self.load_vocab(vocab)
 
     def __call__(self, inp: Union[str, List[str]]):
-        return self.encode(inp)
+        res = self.encode(inp)
+        return res
 
     def call(
         self,
@@ -181,6 +182,9 @@ class BasicTokenizer(TokenizerMixin):
                 inputs = [v[i] for v in inp]
                 if isinstance(inputs[0], str):
                     arr = self.call(inputs)
+                # should be labels
+                elif isinstance(inputs[0], int):
+                    arr = np.array(inputs, dtype=np.int16)
                 else:
                     arr = inputs
                 res.append(arr)
@@ -212,7 +216,7 @@ class BasicTokenizer(TokenizerMixin):
 @Register.register
 class BertTokenizer(BasicTokenizer):
 
-    def __init__(self, vocab_file: str, max_seq_len: int, segmentor: Callable):
+    def __init__(self, vocab_file: str, max_seq_len: int, segmentor: Callable = None):
         super().__init__(vocab_file, max_seq_len, segmentor)
         self.max_seq_len = max_seq_len
         vocab_path = Path(vocab_file).parent.as_posix()
@@ -222,6 +226,9 @@ class BertTokenizer(BasicTokenizer):
         return self.bert.tokenize(text)
 
     def _encode(self, text: str) -> List[int]:
-        return self.bert.encode(
-            text, padding="max_length", max_length=self.max_seq_len, truncation=True
-        )
+        if self.max_seq_len > 0:
+            return self.bert.encode(
+                text, padding="max_length", max_length=self.max_seq_len, truncation=True
+            )
+        else:
+            return self.bert.encode(text)
