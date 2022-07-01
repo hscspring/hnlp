@@ -34,6 +34,8 @@ class Corpus(Node):
     shuffle: Whether to shuffle the input data
     label_map: A Dict to convert your string label to Number, if the label is Number, you do not need to set
         The default value is ADict()
+    add_special_label: Whether to add special label for ner task
+    special_label: The special label, default is "O"
 
     Note
     -----
@@ -41,12 +43,14 @@ class Corpus(Node):
     """
 
     def __init__(
-            self,
-            name: str,
-            pattern: str = "*.*",
-            keys: Optional[Tuple[str, str]] = ("text", "label"),
-            shuffle: bool = False,
-            label_map: Dict[str, int] = ADict(),
+        self,
+        name: str,
+        pattern: str = "*.*",
+        keys: Optional[Tuple[str, str]] = ("text", "label"),
+        shuffle: bool = False,
+        label_map: Dict[str, int] = ADict(),
+        add_special_label: bool = False,
+        special_label: str = "O",
     ):
 
         super().__init__()
@@ -60,7 +64,10 @@ class Corpus(Node):
                 pattern,
                 keys,
                 shuffle,
-                label_map)
+                label_map,
+                add_special_label,
+                special_label,
+            )
         else:
             self.node = super().get_cls(
                 self.identity,
@@ -97,11 +104,15 @@ class LabeledCorpus:
         keys: Optional[Tuple[str, str]],
         shuffle: bool,
         label_map: Dict[str, int],
+        add_special_label: bool,
+        special_label: str = "O",
     ):
         self.pattern = pattern
         self.keys = list(keys)
         self.shuffle = shuffle
         self.label_map = label_map
+        self.add_special_label = add_special_label
+        self.special_label = special_label
         self.data = pd.DataFrame()
         self.reader = Reader()
 
@@ -119,9 +130,14 @@ class LabeledCorpus:
         if isinstance(labels, np.ndarray):
             labels = labels.tolist()
             res = []
+            if self.add_special_label:
+                int_spe_label = self.label_map[self.special_label]
+                res.append(int_spe_label)
             for v in labels:
                 int_label = self.label_map[v]
                 res.append(int_label)
+            if self.add_special_label:
+                res.append(int_spe_label)
             return res
         else:
             return self.label_map.get(labels)

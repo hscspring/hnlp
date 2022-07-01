@@ -9,14 +9,12 @@ from sklearn import metrics
 from pnlp import MagicDict
 from transformers.optimization_tf import WarmUp
 
-from tensorflow.keras.optimizers import Optimizer
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 from hnlp.dataset.datamanager_tf import DataLoader
 from tensor_annotations.axes import Batch, Time
 import tensor_annotations.tensorflow as ttf
 
 from hnlp.utils import unfold
-import tensorflow_addons as tfa
 import tensorflow.keras.backend as K
 
 
@@ -41,7 +39,7 @@ class Trainer:
         self.config = config
         self.task = config.task
 
-        self.use_tf_function = config.use_tf_function or False
+        self.use_tf_function = bool(config.use_tf_function)
 
         # Training
         self.optimizer_str = config.optimizer or "Adam"
@@ -50,9 +48,9 @@ class Trainer:
         self.batch_size = config.batch_size or 32
         self.learning_rate = config.learning_rate or 1e-3
 
-        self.use_decay = config.use_decay or True
+        self.use_decay = bool(config.use_decay)
         self.decay_epochs = config.decay_epochs or 3  # 几个 Epoch decay 1次
-        self.use_warmup = config.use_warmup or False
+        self.use_warmup = bool(config.use_warmup)
 
         self.early_stop_epochs = config.early_stop_epochs or 3  # 几个 Epoch 没有提升就提前终止
         self.valid_epochs = config.valid_epochs or 0.3  # Epoch 内多少比例 Step 进行一次验证
@@ -114,30 +112,34 @@ class Trainer:
     def _train_step(
         self,
         model: Callable,
+        loss_fn: Callable,
         inp: ttf.Tensor2[Batch, Time],
         y_true: ttf.Tensor2[Batch, Time],
     ) -> Tuple[float, Any]:
         with tf.GradientTape() as tape:
-            output = model(inp, training=True)
+            output = model(inp, y_true, training=True)
             loss = loss_fn(output, y_true)
-        grads = tape.gradient(loss, model.trainable_weights)
+        grads = tape.gradient(loss, model.trainable_variables)
         self.optimizer.apply_gradients(
-            grads_and_vars=zip(grads, model.trainable_weights))
+            grads_and_vars=zip(grads, model.trainable_variables))
+        # print(model.trainable_variables)
         return loss, output
 
     def _test_step(
         self,
         model: Callable,
+        loss_fn: Callable,
         inp: ttf.Tensor2[Batch, Time],
         y_true: ttf.Tensor2[Batch, Time]
     ) -> Tuple[float, Any]:
-        output = model(inp, training=False)
+        output = model(inp, y_true, training=False)
         loss = loss_fn(output, y_true)
         return loss, output
 
     def train_step(
         self,
         model: Callable,
+        loss_fn: Callable,
         inp: ttf.Tensor2[Batch, Time],
         y_true: ttf.Tensor2[Batch, Time],
     ) -> Tuple[float, Any]:
@@ -145,11 +147,12 @@ class Trainer:
             func = tf.function(self._train_step)
         else:
             func = self._train_step
-        return func(model, inp, y_true)
+        return func(model, loss_fn, inp, y_true)
 
     def test_step(
         self,
         model: Callable,
+        loss_fn: Callable,
         inp: ttf.Tensor2[Batch, Time],
         y_true: ttf.Tensor2[Batch, Time]
     ) -> Tuple[float, Any]:
@@ -157,7 +160,7 @@ class Trainer:
             func = tf.function(self._test_step)
         else:
             func = self._test_step
-        return func(model, inp, y_true)
+        return func(model, loss_fn, inp, y_true)
 
     def evaluate(
         self,
@@ -176,7 +179,7 @@ class Trainer:
             else:
                 inputs = tuple(inputs)
 
-            loss, output = self.test_step(model, *inputs, labels)
+            loss, output = self.test_step(model, loss_fn, *inputs, labels)
             total_loss += loss
             y_preds, y_trues = metric_step(output, labels)
 
@@ -204,6 +207,8 @@ class Trainer:
     def train(
         self,
         model: Callable,
+        loss_fn: Callable,
+        metric_step: Callable,
         train_dataset: DataLoader,
         val_dataset: DataLoader
     ):
@@ -256,10 +261,12 @@ class Trainer:
                     inputs = (inputs[0], )
                 else:
                     inputs = tuple(inputs)
-                loss, output = self.train_step(model, *inputs, labels)
+
+                loss, output = self.train_step(model, loss_fn, *inputs, labels)
                 train_loss += loss.numpy()
 
-                y_preds, y_trues = metric_step(output, labels)
+                # Might need some model parameters to calculate y_preds
+                y_preds, y_trues = metric_step(model, output, labels)
                 acc = Trainer.get_acc(y_preds, y_trues)
                 train_acc += acc
 
@@ -267,7 +274,8 @@ class Trainer:
                 total_step = int(checkpoint.step)
 
                 if total_step > valid_steps and total_step % valid_steps == 0:
-                    val_acc, val_loss = self.evaluate(model, val_dataset)
+                    val_acc, val_loss = self.evaluate(
+                        model, loss_fn, metric_step, val_dataset)
                     if val_loss < val_best_loss:
                         val_best_loss = val_loss
                         last_improve = total_step
@@ -275,7 +283,8 @@ class Trainer:
                         tf.print(f"Model saved to {path}")
 
                     msg = f"Total Step: {total_step},  Step(Batch): {step},  "
-                    msg += f"LearningRate: {self.optimizer.learning_rate(total_step).numpy():.6f},  \n"
+                    if self.use_decay:
+                        msg += f"LearningRate: {self.optimizer.learning_rate(total_step).numpy():.6f},  \n"
                     msg += f"TrainLoss: {loss.numpy():.4f},  TrainAcc:{acc:.4f},  "
                     msg += f"ValidLoss: {val_loss:.4f},  ValidAcc: {val_acc:.4f}\n"
                     msg += "- " * 30
@@ -302,7 +311,8 @@ class Trainer:
             mins = secs / 60
             secs = secs % 60
 
-            val_acc, val_loss = self.evaluate(model, val_dataset)
+            val_acc, val_loss = self.evaluate(
+                model, loss_fn, metric_step, val_dataset)
 
             tf.print(
                 f"Epoch: {epoch} | time in {mins:.1f} minutes, {secs} seconds")

@@ -12,11 +12,11 @@ class Task(Node):
                  name: str,
                  optimizer: str,
                  loss_fn: str,
-                 metric: str):
+                 metric_step: str):
         self.name = name
         self.optimizer = optimizer
         self.loss_fn = loss_fn
-        self.metric = metric
+        self.metric_step = metric_step
         self.identity = "task"
         self.node = ""
 
