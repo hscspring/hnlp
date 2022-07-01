@@ -9,27 +9,13 @@ from sklearn import metrics
 from pnlp import MagicDict
 from transformers.optimization_tf import WarmUp
 
+from tensorflow.keras.optimizers import Optimizer
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 from hnlp.dataset.datamanager_tf import DataLoader
 from tensor_annotations.axes import Batch, Time
 import tensor_annotations.tensorflow as ttf
 
 from hnlp.utils import unfold
-import tensorflow.keras.backend as K
-
-
-def loss_fn(output, y_true):
-    loss = K.mean(K.sparse_categorical_crossentropy(
-        y_true, output, from_logits=False))
-    return loss
-
-
-def metric_step(
-    output, y_true
-) -> Tuple[List[Union[int, List[int]]], List[Union[int, List[int]]]]:
-    y_preds = K.argmax(output, axis=-1).numpy().tolist()
-    y_trues = y_true.numpy().tolist()
-    return y_preds, y_trues
 
 
 class Trainer:
@@ -165,6 +151,8 @@ class Trainer:
     def evaluate(
         self,
         model: Callable,
+        loss_fn: Callable,
+        metric_step: Callable,
         dataset: DataLoader,
         print_report: bool = False
     ):
@@ -181,7 +169,7 @@ class Trainer:
 
             loss, output = self.test_step(model, loss_fn, *inputs, labels)
             total_loss += loss
-            y_preds, y_trues = metric_step(output, labels)
+            y_preds, y_trues = metric_step(model, output, labels)
 
             y_pred_all.append(y_preds)
             y_true_all.append(y_trues)
@@ -261,7 +249,6 @@ class Trainer:
                     inputs = (inputs[0], )
                 else:
                     inputs = tuple(inputs)
-
                 loss, output = self.train_step(model, loss_fn, *inputs, labels)
                 train_loss += loss.numpy()
 
