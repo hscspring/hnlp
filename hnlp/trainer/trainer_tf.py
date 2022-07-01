@@ -9,7 +9,6 @@ from sklearn import metrics
 from pnlp import MagicDict
 from transformers.optimization_tf import WarmUp
 
-from tensorflow.keras.optimizers import Optimizer
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 from hnlp.dataset.datamanager_tf import DataLoader
 from tensor_annotations.axes import Batch, Time

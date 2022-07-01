@@ -90,6 +90,8 @@ class MetricStep:
                 logit[:text_len], model.transition_params)
             ps = viterbi_path
             ts = labels[:text_len].numpy().tolist()[:text_len]
+            # print(f"ps: {ps}")
+            # print(f"ts: {ts}")
             assert len(ps) == len(
                 ts), f"text_len {text_len}, length predict {len(ps)}, length true {len(ts)}"
             y_preds.append(ps)

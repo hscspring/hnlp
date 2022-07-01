@@ -81,13 +81,15 @@ trainer.train(
     model,
     Loss.mean_loss_crf,
     MetricStep.token_classification_crf,
-    train_ds, val_ds
+    train_ds,
+    val_ds
 )
 acc, loss, report, confusion = trainer.evaluate(
     model,
     Loss.mean_loss_crf,
     MetricStep.token_classification_crf,
-    test_ds, True
+    test_ds,
+    True
 )
 print(report)
 
