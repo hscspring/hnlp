@@ -61,7 +61,6 @@ class MetricStep:
             tf.cast(K.not_equal(y_true, 0), dtype=tf.int32), axis=-1)
 
         for pred, text_len, labels in zip(preds, text_lens, y_true):
-            text_len -= 2
             # assume use bert tokenizer, no matter the model type
             ps = pred[:text_len].numpy().tolist()
             ts = labels[:text_len].numpy().tolist()
@@ -89,7 +88,7 @@ class MetricStep:
             viterbi_path, _ = tfa.text.viterbi_decode(
                 logit[:text_len], model.transition_params)
             ps = viterbi_path
-            ts = labels[:text_len].numpy().tolist()[:text_len]
+            ts = labels[:text_len].numpy().tolist()
             # print(f"ps: {ps}")
             # print(f"ts: {ts}")
             assert len(ps) == len(

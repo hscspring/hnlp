@@ -1,5 +1,6 @@
 import os.path as osp
 import time
+from tkinter import N
 from typing import Callable, List, Union, Tuple, Any
 import tensorflow as tf
 import tensorflow.keras as tfk
@@ -22,40 +23,44 @@ class Trainer:
     def __init__(self, config: MagicDict):
 
         self.config = config
-        self.task = config.task
 
-        self.use_tf_function = bool(config.use_tf_function)
+        self.use_tf_function = config.get("use_tf_function", False)
 
         # Training
-        self.optimizer_str = config.optimizer or "Adam"
+        self.optimizer_str = config.get("optimizer", "Adam")
 
-        self.epochs = config.epochs or 20
-        self.batch_size = config.batch_size or 32
-        self.learning_rate = config.learning_rate or 1e-3
+        self.epochs = config.get("epochs", 20)
+        self.batch_size = config.get("batch_size", 32)
+        self.learning_rate = config.get("learning_rate", 1e-3)
 
-        self.use_decay = bool(config.use_decay)
-        self.decay_epochs = config.decay_epochs or 3  # 几个 Epoch decay 1次
-        self.use_warmup = bool(config.use_warmup)
+        self.use_decay = config.get("use_decay", False)
+        # 几个 Epoch decay 1次
+        self.decay_epochs = config.get("decay_epochs", 3)
+        self.use_warmup = config.get("use_warmup", False)
 
-        self.early_stop_epochs = config.early_stop_epochs or 3  # 几个 Epoch 没有提升就提前终止
-        self.valid_epochs = config.valid_epochs or 0.3  # Epoch 内多少比例 Step 进行一次验证
+        # 几个 Epoch 没有提升就提前终止
+        self.early_stop_epochs = config.get("early_stop_epochs", 3)
+        # Epoch 内多少比例 Step 进行一次评估
+        self.valid_epochs = config.get("valid_epochs", 0.3)
 
-        self.early_stop_steps = config.early_stop_steps or None
-        self.valid_steps = config.valid_steps or None
+        self.early_stop_steps = config.get("early_stop_steps", None)
+        self.valid_steps = config.get("valid_steps", None)
 
-        self.out_path = config.out_path or "./output/"
+        self.out_path = config.get("out_path", "./output/")
 
         self.ckpt_path = osp.join(self.out_path, "ckpt")
         self.logs_path = osp.join(self.out_path, "logs")
         self.save_path = osp.join(self.out_path, "save")
 
-        self.label_list = config.label_list or None
+        self.label_list = config.get("label_list", None)
 
     @staticmethod
     def get_acc(
         y_preds: List[Union[int, List[int]]],
         y_trues: List[Union[int, List[int]]],
     ) -> float:
+        # print("DEBUG pred", y_preds)
+        # print("DEBUG true", y_trues)
         acc = 0
         for i, (y_pred, y_true) in enumerate(zip(y_preds, y_trues), start=1):
             pa = np.array(y_pred, dtype=np.int16)
@@ -105,8 +110,26 @@ class Trainer:
             output = model(inp, y_true, training=True)
             loss = loss_fn(output, y_true)
         grads = tape.gradient(loss, model.trainable_variables)
+        grads_and_vars_mult = []
+
+        for grad, var in zip(grads, model.trainable_variables):
+            if grad is None:
+                continue
+            if hasattr(model, "get_learning_rate"):
+                lr_dct = model.get_learning_rate()
+                key = var.name
+                if key not in lr_dct:
+                    key = key.split(":")[0]
+                var_lr = lr_dct.get(key)
+                if var_lr:
+                    grad *= var_lr
+            grads_and_vars_mult.append((grad, var))
+
         self.optimizer.apply_gradients(
-            grads_and_vars=zip(grads, model.trainable_variables))
+            grads_and_vars=grads_and_vars_mult)
+
+        # self.optimizer.apply_gradients(
+        #     grads_and_vars=zip(grads, model.trainable_variables))
         # print(model.trainable_variables)
         return loss, output
 
@@ -182,6 +205,13 @@ class Trainer:
         loss = total_loss / steps
 
         if print_report:
+            # ps may contain 0, change them to 1
+            o_idx = self.label_list.index("O")
+            for i, v in enumerate(ps):
+                if v == 0:
+                    ps[i] = o_idx
+            # drop `PAD` label
+            self.label_list.pop(0)
             report = metrics.classification_report(
                 ts, ps, target_names=self.label_list, digits=4
             )
@@ -234,9 +264,15 @@ class Trainer:
         valid_steps = self.valid_steps or int(self.valid_epochs * epoch_steps)
         valid_steps = max(1, valid_steps)
 
-        tf.print(
-            f"Epoch steps: {epoch_steps}, Valid steps: {valid_steps}, Early stop steps: {early_stop_steps}"
-        )
+        msg = f"Epoch steps: {epoch_steps}, "
+        msg += f"Valid steps: {valid_steps}, "
+        msg += f"Early stop steps: {early_stop_steps}"
+        tf.print(msg)
+
+        if valid_steps >= epoch_steps:
+            msg = "Valid steps is bigger than epoch steps."
+            msg += "Use the epoch ealuation, instead of evaluation in the epoch."
+            tf.print(msg)
 
         for epoch in range(1, self.epochs + 1):
             tf.print(f"\nEpoch {epoch}/{self.epochs}")
@@ -259,7 +295,12 @@ class Trainer:
                 step += 1
                 total_step = int(checkpoint.step)
 
-                if total_step > valid_steps and total_step % valid_steps == 0:
+                if (
+                    total_step > valid_steps and
+                    total_step % valid_steps == 0 and
+                    # if valid steps bigger than epoch steps, use the epoch evaluation
+                    valid_steps < epoch_steps
+                ):
                     val_acc, val_loss = self.evaluate(
                         model, loss_fn, metric_step, val_dataset)
                     if val_loss < val_best_loss:
@@ -270,7 +311,7 @@ class Trainer:
 
                     msg = f"Total Step: {total_step},  Step(Batch): {step},  "
                     if self.use_decay:
-                        msg += f"LearningRate: {self.optimizer.learning_rate(total_step).numpy():.6f},  \n"
+                        msg += f"LearningRate: {self.optimizer.learning_rate(total_step).numpy():.6f}, \n"
                     msg += f"TrainLoss: {loss.numpy():.4f},  TrainAcc:{acc:.4f},  "
                     msg += f"ValidLoss: {val_loss:.4f},  ValidAcc: {val_acc:.4f}\n"
                     msg += "- " * 30
@@ -300,12 +341,11 @@ class Trainer:
             val_acc, val_loss = self.evaluate(
                 model, loss_fn, metric_step, val_dataset)
 
-            tf.print(
-                f"Epoch: {epoch} | time in {mins:.1f} minutes, {secs} seconds")
-            tf.print(
-                f"\tTrainLoss: {train_loss/step:.4f}  |  TrainMse/Acc: {train_acc/step:.4f}")
-            tf.print(
-                f"\tValidLoss: {val_loss:.4f}  |  ValidMse/Acc: {val_acc:.4f}")
+            msg = f"Epoch: {epoch} | time in {mins:.1f} minutes, {secs} seconds \n"
+            msg += f"\tEpoch TrainLoss: {train_loss/step:.4f}  |  Epoch TrainMse/Acc: {train_acc/step:.4f} \n"
+            msg += f"\tEpoch ValidLoss: {val_loss:.4f}  |  Epoch ValidMse/Acc: {val_acc:.4f}"
+            tf.print(msg)
 
             if flag:
                 break
+        tf.saved_model.save(model, self.save_path)

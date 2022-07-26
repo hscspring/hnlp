@@ -1,13 +1,20 @@
-# from model import TokenClassificationSoftmaxModel as Model
+from model import TokenClassificationSoftmaxModel
+from model import TokenClassificationCrfModel
+from model import BertSoftmaxModel
+from model import BertCrfModel
+from model import LstmSoftmaxModel
+from model import LstmCrfModel
+
 import tensorflow as tf
-from model import TokenClassificationCrfModel as Model
 from hnlp import Corpus, Tokenizer, DataManager, Trainer, Node
 from hnlp.trainer import Loss, MetricStep
 import pnlp
 from pnlp import MagicDict
 from pathlib import Path
 
+bert_root = Path("/home/hsc/ner/model/chinese_wwm_ext_L-12_H-768_A-12/")
 data_root = Path("/home/hsc/ner/v0.2.0/")
+data_root = Path("/home/hsc/ner/resume-zh/")
 label_list = pnlp.read_json(data_root / "labels.json")
 label_list.insert(0, "PAD")
 i = 0
@@ -32,13 +39,16 @@ config = MagicDict({
     "max_seq_len": 200,
     "num_labels": len(label_list),
     "label_list": label_list,
+    "bert_root": bert_root,
 
     "epochs": 20,
     "learning_rate": 1e-3,
-    "use_decay": False,
-    "valid_epochs": 0.5,
-    "batch_size": 32,
-    "out_path": "./crf_output/"
+    "use_decay": True,
+    "decay_epochs": 3,
+    "valid_epochs": 0.3,
+    "early_stop_epochs": 3,
+    "batch_size": 64,
+    "out_path": "./output/"
 })
 
 
@@ -75,22 +85,18 @@ for x, y in (cs >> pp >> tk >> dm_test).run(data_root/"test.txt"):
     print(y[0])
     break
 
-model = Model(config)
+model = LstmCrfModel(config)
 trainer = Trainer(config)
-trainer.train(
-    model,
-    Loss.mean_loss_crf,
-    MetricStep.token_classification_crf,
-    train_ds,
-    val_ds
-)
+
+loss_fn = Loss.crossentropy_loss
+metric_fn = MetricStep.token_classification
+
+loss_fn = Loss.mean_loss_crf
+metric_fn = MetricStep.token_classification_crf
+
+trainer.train(model, loss_fn, metric_fn, train_ds, val_ds)
 acc, loss, report, confusion = trainer.evaluate(
-    model,
-    Loss.mean_loss_crf,
-    MetricStep.token_classification_crf,
-    test_ds,
-    True
-)
+    model, loss_fn, metric_fn, test_ds, True)
 print(report)
 
 

@@ -19,3 +19,7 @@ class Loss:
     def mean_loss_crf(output, y_true):
         loss = output[-1]
         return - K.mean(loss)
+
+    @staticmethod
+    def dice_loss(output, y_true):
+        ...
