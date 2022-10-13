@@ -30,6 +30,7 @@ default_config = MagicDict(
         "cnn": pnlp.read_json(model_root / "cnn.json"),
         "gru": pnlp.read_json(model_root / "gru.json"),
         "vocab_file": vocab_root / "bert/vocab.txt",
+        "train_tf": pnlp.read_json(model_root / "train_tf.json"),
     }
 )
 

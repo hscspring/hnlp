@@ -134,7 +134,7 @@ class LabeledCorpus:
                 int_spe_label = self.label_map[self.special_label]
                 res.append(int_spe_label)
             for v in labels:
-                int_label = self.label_map[v]
+                int_label = self.label_map.get(v, v)
                 res.append(int_label)
             if self.add_special_label:
                 res.append(int_spe_label)

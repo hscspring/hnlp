@@ -16,51 +16,30 @@ from tensor_annotations.axes import Batch, Time
 import tensor_annotations.tensorflow as ttf
 
 from hnlp.utils import unfold
+from hnlp.config import default_config
+
 
 
 class Trainer:
 
-    def __init__(self, config: MagicDict):
+    def __init__(self, config: dict = {}):
+        self._config = MagicDict({**default_config.train_df, **config})
+        for key, val in self._config.items():
+            setattr(self, key, val)
 
-        self.config = config
+        self.train_step_func = None
+        self.test_step_func = None
 
-        self.use_tf_function = config.get("use_tf_function", False)
-
-        # Training
-        self.optimizer_str = config.get("optimizer", "Adam")
-
-        self.epochs = config.get("epochs", 20)
-        self.batch_size = config.get("batch_size", 32)
-        self.learning_rate = config.get("learning_rate", 1e-3)
-
-        self.use_decay = config.get("use_decay", False)
-        # 几个 Epoch decay 1次
-        self.decay_epochs = config.get("decay_epochs", 3)
-        self.use_warmup = config.get("use_warmup", False)
-
-        # 几个 Epoch 没有提升就提前终止
-        self.early_stop_epochs = config.get("early_stop_epochs", 3)
-        # Epoch 内多少比例 Step 进行一次评估
-        self.valid_epochs = config.get("valid_epochs", 0.3)
-
-        self.early_stop_steps = config.get("early_stop_steps", None)
-        self.valid_steps = config.get("valid_steps", None)
-
-        self.out_path = config.get("out_path", "./output/")
-
-        self.ckpt_path = osp.join(self.out_path, "ckpt")
-        self.logs_path = osp.join(self.out_path, "logs")
-        self.save_path = osp.join(self.out_path, "save")
-
-        self.label_list = config.get("label_list", None)
+    @property
+    def config(self):
+        return self._config
+    
 
     @staticmethod
     def get_acc(
         y_preds: List[Union[int, List[int]]],
         y_trues: List[Union[int, List[int]]],
     ) -> float:
-        # print("DEBUG pred", y_preds)
-        # print("DEBUG true", y_trues)
         acc = 0
         for i, (y_pred, y_true) in enumerate(zip(y_preds, y_trues), start=1):
             pa = np.array(y_pred, dtype=np.int16)
@@ -95,9 +74,9 @@ class Trainer:
 
     def get_optimizer(self, optimizer: str, data_size: int):
         schedule = self.get_lr_schedule(data_size)
-        optimizer = getattr(tfk.optimizers, optimizer)(
+        optimizer_func = getattr(tfk.optimizers, optimizer)(
             learning_rate=schedule)
-        return optimizer
+        return optimizer_func
 
     def _train_step(
         self,
@@ -127,10 +106,6 @@ class Trainer:
 
         self.optimizer.apply_gradients(
             grads_and_vars=grads_and_vars_mult)
-
-        # self.optimizer.apply_gradients(
-        #     grads_and_vars=zip(grads, model.trainable_variables))
-        # print(model.trainable_variables)
         return loss, output
 
     def _test_step(
@@ -148,14 +123,17 @@ class Trainer:
         self,
         model: Callable,
         loss_fn: Callable,
-        inp: ttf.Tensor2[Batch, Time],
+        *inp: ttf.Tensor2[Batch, Time],
         y_true: ttf.Tensor2[Batch, Time],
     ) -> Tuple[float, Any]:
         if self.use_tf_function:
             func = tf.function(self._train_step)
         else:
             func = self._train_step
-        return func(model, loss_fn, inp, y_true)
+        if len(inp) == 1:
+            return func(model, loss_fn, inp, y_true)
+        else:
+            return func(model, loss_fn, inp1, inp2, y_true)
 
     def test_step(
         self,
@@ -241,7 +219,7 @@ class Trainer:
         )
         manager = tf.train.CheckpointManager(
             checkpoint,
-            directory=self.ckpt_path,
+            directory=osp.join(self.out_path, "ckpt"),
             max_to_keep=3
         )
 
@@ -251,7 +229,7 @@ class Trainer:
         else:
             tf.print("Initializing from scratch.")
 
-        summary_writer = tf.summary.create_file_writer(self.logs_path)
+        summary_writer = tf.summary.create_file_writer(osp.join(self.out_path, "logs"))
         val_best_loss = float("inf")
         last_improve = 0
         flag = False
@@ -348,4 +326,5 @@ class Trainer:
 
             if flag:
                 break
-        tf.saved_model.save(model, self.save_path)
+        checkpoint.restore(manager.latest_checkpoint)
+        tf.saved_model.save(model, osp.join(self.out_path, "save"))
